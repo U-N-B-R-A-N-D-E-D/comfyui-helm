@@ -19,25 +19,26 @@ try:
                 entries = os.listdir(d)
             except OSError:
                 continue
-            for fn in entries:
-                if not fn.endswith(".pt"):
-                    continue
-                name = fn[:-3]
-                if name in seen:
-                    continue
-                seen.add(name)
-                meta = _nodes._read_meta(name) or {}
-                axes.append({
-                    "name": name,
-                    "path": os.path.join(d, fn),
-                    "kind": meta.get("kind"),
-                    "dim": meta.get("dim"),
-                    "block": meta.get("block"),
-                    "norm": meta.get("norm"),
-                    "safe_max": meta.get("safe_max"),
-                    "created": meta.get("created"),
-                    "tested": meta.get("tested"),
-                })
+            for ext in (_nodes.AXIS_EXT, _nodes.LEGACY_EXT):
+                for fn in entries:
+                    if not fn.endswith(ext):
+                        continue
+                    name = fn[: -len(ext)]
+                    if name in seen:
+                        continue
+                    seen.add(name)
+                    meta = _nodes._read_meta(name) or {}
+                    axes.append({
+                        "name": name,
+                        "path": os.path.join(d, fn),
+                        "kind": meta.get("kind"),
+                        "dim": meta.get("dim"),
+                        "block": meta.get("block"),
+                        "norm": meta.get("norm"),
+                        "safe_max": meta.get("safe_max"),
+                        "created": meta.get("created"),
+                        "tested": meta.get("tested"),
+                    })
         return web.json_response({"axes": axes, "dirs": list(_nodes._READ_DIRS)})
 except Exception:
     pass

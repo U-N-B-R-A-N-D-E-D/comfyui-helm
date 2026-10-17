@@ -1,14 +1,20 @@
 """Helm — training-free activation steering for ComfyUI.
 
 Read a transformer block's mean activation for two contrastive prompts (diff-in-means) and inject
-`x + strength*axis` at that block during sampling. Weights are not modified; an axis is a small tensor
-file. Reads resolve `user/steer/` -> `models/steer/` -> this pack's `example_axes/`; writes always go
-to `user/steer/`.
+`x + strength*axis` at that block during sampling. Weights are not modified; an axis is a small
+`.safetensors` file that carries its own metadata (dim, block, model). Reads resolve `user/steer/` ->
+`models/steer/` -> this pack's `example_axes/`; writes always go to `user/steer/`. Axes written by
+older versions as `.pt` are still read; `HelmApply` `block=-1` adopts the block recorded in the axis.
 
 Nodes
   HelmCollect  MODEL -> MODEL   mean activation at block K for a tag (run once per prompt)
   HelmVector   tags  -> STRING  axis = mean_pos - mean_neg -> reusable axis file
   HelmApply    MODEL -> MODEL   inject x + strength*axis at block K (chain several for multiple axes)
+
+Model onboarding
+  HelmProbe        MODEL -> MODEL      read EVERY block for a tag (run twice: pos, then neg)
+  HelmProbeReport  tags  -> INT/FLOAT  per-block separation ranking; suggests a block + strength
+                                       (both heuristic) and writes user/steer/probe_report.json
 
 Wire MODEL source -> HelmApply -> sampler. Works on any DiT exposing a `blocks`/`layers`/`transformer_blocks`/
 `double_blocks`/`single_blocks` ModuleList (H3: blocks, dim 5376, block ~20; Z-Image/Lumina: layers,
@@ -21,12 +27,19 @@ from functools import lru_cache, partial
 
 import torch
 import folder_paths
+from safetensors import safe_open as _st_open
+from safetensors.torch import save_file as _st_save
 
 # --- paths / calibration -------------------------------------------------------------------
 _PACK_DIR = os.path.dirname(os.path.realpath(__file__))
 AXIS_DIR = os.path.join(folder_paths.get_user_directory(), "steer")
 _READ_DIRS = [AXIS_DIR, os.path.join(folder_paths.models_dir, "steer"), os.path.join(_PACK_DIR, "example_axes")]
 _CALIB_PATH = os.path.join(_PACK_DIR, "calibration.json")
+
+# Axes are `.safetensors` — self-contained (tensor + metadata in the header), no pickle anywhere.
+# `.pt` is still READ so axes written by 0.2.0 keep working; nothing writes it anymore.
+AXIS_EXT = ".safetensors"
+LEGACY_EXT = ".pt"
 
 
 def _axes():
@@ -35,23 +48,27 @@ def _axes():
 
 
 def _axis_path(name):
-    return os.path.join(_axes(), f"{name}.pt")
+    os.makedirs(AXIS_DIR, exist_ok=True)
+    return os.path.join(AXIS_DIR, f"{name}{AXIS_EXT}")
 
 
 def _meta_path(name):
-    return os.path.join(_axes(), f"{name}.json")
+    return os.path.join(AXIS_DIR, f"{name}.json")
 
 
 def _resolve_axis(name):
+    """An axis name resolves per directory (read order preserved), preferring `.safetensors` over a
+    legacy `.pt` inside the same directory, so a new bundled axis never shadows a user's own file."""
     tried = []
     for d in _READ_DIRS:
-        p = os.path.join(d, f"{name}.pt")
-        tried.append(p)
-        if os.path.exists(p):
-            return p
+        for ext in (AXIS_EXT, LEGACY_EXT):
+            p = os.path.join(d, f"{name}{ext}")
+            tried.append(p)
+            if os.path.exists(p):
+                return p
     raise FileNotFoundError(
         f"axis '{name}' not found. Looked in:\n  " + "\n  ".join(tried) +
-        f"\nRun HelmCollect + HelmVector first, or drop '{name}.pt' into {_READ_DIRS[-1]}.")
+        f"\nRun HelmCollect + HelmVector first, or drop '{name}{AXIS_EXT}' into {_READ_DIRS[-1]}.")
 
 
 def _resolve_meta(name):
@@ -64,6 +81,74 @@ def _resolve_meta(name):
     raise FileNotFoundError(
         f"metadata for '{name}' not found. Looked in:\n  " + "\n  ".join(tried) +
         f"\nIt is written beside the axis by HelmCollect/HelmVector.")
+
+
+def _load_tensor(path, key="axis"):
+    """`[dim]` or `[n_blocks, dim]` float32. `.safetensors` needs no pickle; a legacy `.pt` is loaded
+    with `weights_only=True`, so a dropped axis file can never execute code."""
+    if path.endswith(AXIS_EXT):
+        with _st_open(path, framework="pt", device="cpu") as f:
+            vec = f.get_tensor(key)
+    else:
+        vec = torch.load(path, map_location="cpu", weights_only=True)
+    return vec.detach().to(torch.float32)
+
+
+def _load_axis(path):
+    return _load_tensor(path).reshape(-1)
+
+
+def _meta_from_header(header):
+    """Pure. safetensors metadata values are strings, so cast back; `''` is the encoding of None."""
+    out = {}
+    for k, v in header.items():
+        if k in ("dim", "block"):
+            try:
+                out[k] = int(v)
+                continue
+            except (TypeError, ValueError):
+                pass
+        elif k in ("norm", "safe_max"):
+            try:
+                out[k] = float(v)
+                continue
+            except (TypeError, ValueError):
+                pass
+        elif k in ("from", "probe"):
+            try:
+                out[k] = json.loads(v)
+                continue
+            except (TypeError, ValueError):
+                pass
+        out[k] = v or None
+    return out
+
+
+def _load_axis_meta(path):
+    try:
+        with _st_open(path, framework="pt", device="cpu") as f:
+            return _meta_from_header(f.metadata() or {})
+    except Exception:
+        return None
+
+
+def _save_tensor(name, tensor, meta, key="axis"):
+    """Write a tensor and its metadata as ONE `.safetensors` file. The JSON sidecar is kept too --
+    it is greppable and hand-editable -- but the file is complete without it."""
+    os.makedirs(AXIS_DIR, exist_ok=True)
+    meta = dict(meta)
+    meta.setdefault("helm_version", 2)
+    meta.setdefault("created", time.time())
+    meta.setdefault("model", None)
+    meta.setdefault("module", None)
+    header = {k: (json.dumps(v) if isinstance(v, (dict, list)) else "" if v is None else str(v))
+              for k, v in meta.items()}
+    _st_save({key: tensor.detach().to(torch.float32).cpu().contiguous()}, _axis_path(name), metadata=header)
+    _write_meta(name, meta)
+
+
+def _save_axis(name, vec, meta):
+    _save_tensor(name, vec.reshape(-1), meta)
 
 
 def _write_meta(name, meta):
@@ -82,6 +167,10 @@ def _read_meta(name):
     try:
         with open(_resolve_meta(name), "r", encoding="utf-8") as f:
             return json.load(f)
+    except Exception:
+        pass
+    try:
+        return _load_axis_meta(_resolve_axis(name))
     except Exception:
         return None
 
@@ -174,10 +263,8 @@ def _flush(tag, acc, block, module, model_name):
     if acc.get("sum") is None or acc.get("n", 0) <= 0:
         return
     v = acc["sum"] / acc["n"]
-    _axes()
-    torch.save(v, _axis_path(tag))
-    _write_meta(tag, {"kind": "activation", "dim": int(v.shape[0]), "block": int(block),
-                      "model": model_name, "module": module})
+    _save_axis(tag, v, {"kind": "activation", "dim": int(v.shape[0]), "block": int(block),
+                        "model": model_name, "module": module})
 
 
 def _make_collect_hook(acc, tag, block, module, model_name, cond_only, write_mode):
@@ -246,12 +333,19 @@ def _wrapper(mp):
                 acc = getattr(h.get("fn"), "_acc", None)
                 if acc is not None:
                     if total is not None and step == 0:
-                        acc["sum"] = None
-                        acc["n"] = 0
+                        if acc.get("reset"):
+                            acc["reset"]()
+                        else:
+                            acc["sum"] = None
+                            acc["n"] = 0
                     # SPEC DEVIATION: spec wrote `total is not None and ...`, which never writes when
                     # sample_sigmas is absent; use the spec's fallback ("each") in that case.
                     acc["last"] = (total is None) or (step + 1 >= total)
                 if frac < h.get("start", 0.0) or frac > h.get("end", 1.0):
+                    continue
+                if h.get("all_blocks"):
+                    for i in range(len(blocks)):
+                        handles.append(blocks[i].register_forward_hook(partial(h["fn"], flags=flags, idx=i)))
                     continue
                 idx = h["block"]
                 if idx >= len(blocks):
@@ -282,6 +376,64 @@ def _install_wrapper(mp):
     run = _wrapper(mp)
     mp.set_model_unet_function_wrapper(run)
     return run
+
+
+# --- probe: per-block sensitivity profile (onboarding a new model) --------------------------
+# On H3 the verified safe_max (0.3) times the shipped axis norm (~3170) is a perturbation around
+# 30% of the block's activation norm. SAFE_FRACTION turns the probe's own measured norms into a
+# starting-point strength. It is a HEURISTIC from one measured model -- not a guarantee.
+SAFE_FRACTION = 0.3
+
+
+def _probe_profile(pos, neg):
+    """Pure. `pos`/`neg` are `[n_blocks, dim]` per-block means. The separation is scale-free --
+    `||mu_pos - mu_neg|| / mean(||mu_pos||, ||mu_neg||)` -- so blocks are comparable to each other."""
+    d = pos - neg
+    dn = d.norm(dim=1)
+    pn, nn = pos.norm(dim=1), neg.norm(dim=1)
+    mu = 0.5 * (pn + nn)
+    sep = dn / (mu + 1e-8)
+    cos = (pos * neg).sum(dim=1) / (pn * nn + 1e-8)
+    n = int(pos.shape[0])
+    lo = int(0.25 * n)
+    hi = max(int(0.75 * n), lo + 1)
+    k = int(lo + int(torch.argmax(sep[lo:hi])))
+    return {
+        "n_blocks": n,
+        "dim": int(pos.shape[1]),
+        "suggested": {"block": k,
+                      "strength": round(float(SAFE_FRACTION * mu[k] / (dn[k] + 1e-8)), 4),
+                      "separation": round(float(sep[k]), 4)},
+        "ranking": [{"block": int(i), "separation": round(float(sep[i]), 4),
+                     "cosine": round(float(cos[i]), 4), "mu_norm": round(float(mu[i]), 2),
+                     "delta_norm": round(float(dn[i]), 2)}
+                    for i in torch.argsort(sep, descending=True).tolist()],
+    }
+
+
+def _flush_probe(tag, acc, module, model_name):
+    rows, steps = acc.get("rows"), acc.get("steps", 0)
+    if rows is None or steps <= 0:
+        return
+    prof = rows / steps
+    _save_tensor(tag, prof, {"kind": "probe", "n_blocks": int(prof.shape[0]),
+                             "dim": int(prof.shape[1]), "module": module, "model": model_name})
+
+
+def _make_probe_hook(acc, tag, module, model_name, cond_only, write_mode):
+    def fn(m, args, out, flags=None, idx=0):
+        v = _stack_mean(out, flags=flags, cond_only=cond_only)
+        if acc["rows"] is None:
+            acc["rows"] = torch.zeros(acc["n_blocks"], v.shape[0], dtype=torch.float32)
+        if idx < acc["rows"].shape[0] and v.shape[0] == acc["rows"].shape[1]:
+            acc["rows"][idx] += v
+        if idx == 0:
+            acc["steps"] += 1
+        if idx == acc["n_blocks"] - 1 and (write_mode == "each" or (write_mode == "last" and acc.get("last"))):
+            _flush_probe(tag, acc, module, model_name)
+        return None  # read-only
+    fn._acc = acc
+    return fn
 
 
 # --- nodes ---------------------------------------------------------------------------------
@@ -333,14 +485,13 @@ class HelmVector:
 
     def run(self, pos_tag, neg_tag, axis, safe_max=0.0):
         p, n = _resolve_axis(pos_tag), _resolve_axis(neg_tag)
-        v = torch.load(p, map_location="cpu") - torch.load(n, map_location="cpu")
+        v = _load_axis(p) - _load_axis(n)
         meta = _read_meta(pos_tag) or {}
-        torch.save(v, _axis_path(axis))
-        _write_meta(axis, {"kind": "axis", "dim": int(v.shape[0]), "block": meta.get("block"),
-                           "model": meta.get("model"), "module": meta.get("module"),
-                           "norm": round(float(v.norm()), 3),
-                           "safe_max": float(safe_max) if safe_max else None,
-                           "from": {"pos": pos_tag, "neg": neg_tag}})
+        _save_axis(axis, v, {"kind": "axis", "dim": int(v.shape[0]), "block": meta.get("block"),
+                             "model": meta.get("model"), "module": meta.get("module"),
+                             "norm": round(float(v.norm()), 3),
+                             "safe_max": float(safe_max) if safe_max else None,
+                             "from": {"pos": pos_tag, "neg": neg_tag}})
         print(f"[helm] axis '{axis}' dim={tuple(v.shape)} norm={float(v.norm()):.3f} safe_max={safe_max or '-'} -> {_axis_path(axis)}")
         return (axis,)
 
@@ -351,7 +502,8 @@ class HelmApply:
         return {"required": {
             "model": ("MODEL",),
             "axis": ("STRING", {"default": "axis"}),
-            "block": ("INT", {"default": 20, "min": 0, "max": 512}),
+            "block": ("INT", {"default": 20, "min": -1, "max": 512,
+                              "tooltip": "-1 = adopt the block recorded inside the axis file (the block it was built at); otherwise this explicit index"}),
             "strength": ("FLOAT", {"default": 0.1, "min": -10.0, "max": 10.0, "step": 0.01,
                                    "tooltip": "scale of the injected axis. Model-specific; see calibration.json"}),
             "dial": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01,
@@ -370,12 +522,20 @@ class HelmApply:
 
     def run(self, model, axis, block, strength, dial=0.0, cond_only=False, start_percent=0.0, end_percent=1.0):
         path = _resolve_axis(axis)
-        vec = torch.load(path, map_location="cpu")
+        vec = _load_axis(path)
         meta = _read_meta(axis) or {}
         try:
             meta_path = _resolve_meta(axis)
         except FileNotFoundError:
             meta_path = _meta_path(axis)
+
+        if int(block) < 0:
+            auto = meta.get("block")
+            if auto is None:
+                raise ValueError(
+                    f"block=-1 (auto) but axis '{axis}' records no block index. Pass an explicit block, "
+                    f"or rebuild the axis so its metadata carries one.")
+            block = int(auto)
 
         safe = meta.get("safe_max")
         if dial and safe:
@@ -398,9 +558,90 @@ class HelmApply:
         return (mp,)
 
 
-NODE_CLASS_MAPPINGS = {"HelmCollect": HelmCollect, "HelmVector": HelmVector, "HelmApply": HelmApply}
+class HelmProbe:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "model": ("MODEL",),
+            "tag": ("STRING", {"default": "probe_pos",
+                               "tooltip": "file to write. Run this node TWICE against the same model — once with a `pos` tag, once with a `neg` tag — then feed both to HelmProbeReport."}),
+            "cond_only": ("BOOLEAN", {"default": False,
+                                      "tooltip": "Default False preserves the published result. True averages only cond batch items (recommended for CFG models)."}),
+        }}
+    RETURN_TYPES = ("MODEL",)
+    RETURN_NAMES = ("model",)
+    FUNCTION = "run"
+    CATEGORY = "Helm"
+
+    def run(self, model, tag="probe_pos", cond_only=False):
+        _axes()
+        mp = model.clone()
+        entry = _calib_for(mp)
+        module = entry.get("module") if entry else None
+        model_name = _model_name(mp)
+        blocks, _ = _find_blocks(mp, which=module)
+        n = len(blocks)
+        acc = {"rows": None, "steps": 0, "n_blocks": n, "last": False}
+        acc["reset"] = lambda: acc.update(rows=None, steps=0)
+        fn = _make_probe_hook(acc, tag, module, model_name, cond_only, "last")
+        _add_hook(mp, {"fn": fn, "all_blocks": True, "start": 0.0, "end": 1.0})
+        _install_wrapper(mp)
+        print(f"[helm] probing all {n} blocks under tag '{tag}' -> {_axis_path(tag)} "
+              f"(run twice with different tags, then HelmProbeReport)")
+        return (mp,)
+
+
+class HelmProbeReport:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "pos_tag": ("STRING", {"default": "probe_pos"}),
+            "neg_tag": ("STRING", {"default": "probe_neg"}),
+            "top": ("INT", {"default": 5, "min": 1, "max": 64,
+                            "tooltip": "how many ranked blocks to print"}),
+        }}
+    RETURN_TYPES = ("INT", "FLOAT")
+    RETURN_NAMES = ("block", "strength")
+    FUNCTION = "run"
+    CATEGORY = "Helm"
+
+    def run(self, pos_tag="probe_pos", neg_tag="probe_neg", top=5):
+        P = _load_tensor(_resolve_axis(pos_tag))
+        N = _load_tensor(_resolve_axis(neg_tag))
+        if P.dim() != 2 or P.shape != N.shape:
+            raise ValueError(
+                f"probe files must both be [n_blocks, dim] tensors from HelmProbe with matching shapes; "
+                f"got {tuple(P.shape)} for '{pos_tag}' and {tuple(N.shape)} for '{neg_tag}'")
+        prof = _probe_profile(P, N)
+        sug = prof["suggested"]
+        meta = _read_meta(pos_tag) or {}
+        report = {"kind": "probe_report", "created": time.time(), "pos_tag": pos_tag, "neg_tag": neg_tag,
+                  "model": meta.get("model"), "module": meta.get("module"),
+                  "heuristic": {"safe_fraction": SAFE_FRACTION,
+                                "band": "middle 50% of blocks (early blocks destroy the frame)"},
+                  **prof}
+        path = os.path.join(_axes(), "probe_report.json")
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2)
+        except Exception as e:
+            print(f"[helm] could not write {path}: {e}")
+        print("[helm] probe report — separation (high = stronger contrast at that block):")
+        for row in prof["ranking"][:max(1, int(top))]:
+            print(f"[helm]   block {row['block']:>3}: sep={row['separation']:.4f} cos={row['cosine']:+.4f} "
+                  f"|dmu|={row['delta_norm']:.1f} |mu|={row['mu_norm']:.1f}")
+        print(f"[helm] suggested block {sug['block']} of {prof['n_blocks']} and strength ~{sug['strength']} "
+              f"— both HEURISTIC (peak in the middle 50%; {SAFE_FRACTION} x |mu|/|dmu|). "
+              f"Confirm with 1-2 renders. Report -> {path}")
+        return (int(sug["block"]), float(sug["strength"]))
+
+
+NODE_CLASS_MAPPINGS = {"HelmCollect": HelmCollect, "HelmVector": HelmVector, "HelmApply": HelmApply,
+                       "HelmProbe": HelmProbe, "HelmProbeReport": HelmProbeReport}
 NODE_DISPLAY_NAME_MAPPINGS = {
     "HelmCollect": "Helm Collect (read activation)",
     "HelmVector": "Helm Axis (diff-in-means)",
     "HelmApply": "Helm Apply (strength x axis)",
+    "HelmProbe": "Helm Probe (read all blocks)",
+    "HelmProbeReport": "Helm Probe Report (pick block + strength)",
 }

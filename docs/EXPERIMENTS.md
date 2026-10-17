@@ -7,7 +7,7 @@ MiniMax H3 pod; the caveats are as important as the results.
 
 - **Model:** MiniMax H3 (video), block 20, hidden dim 5376, `fast` preset, 704×1280, 10.1 s.
 - **Axis:** `density` — diff-in-means over two contrast prompts (*empty hall* vs *packed hall*),
-  shipped as `example_axes/density.pt`.
+  shipped as `example_axes/density.safetensors`.
 - **Metric, per output:** the mid frame is scored by CLIP (`openai/clip-vit-base-patch32`) as
   `P("an empty room")` vs `P("a room packed with server racks and machinery")` → a single
   `CLIP empty` number. Plus plain image statistics — mean luminance, mean HSV saturation, and

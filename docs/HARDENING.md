@@ -7,6 +7,9 @@ torch (`pytest -q`), with `pip install torch --index-url https://download.pytorc
 The theme is silent failure: each defect produced wrong output, no output, or a crash on a path the
 docs implied was supported, without a clear error.
 
+Axis files are `.safetensors` as of 0.3.0 (see E7); the `.pt` names in the entries below are the
+pre-0.3.0 ones.
+
 ## E1 — two chained `HelmApply` silently dropped the first slider
 
 - **Symptom.** `h3_t2v_helm.json` chains `mood` → `density`. Only the second axis changed the output;
@@ -114,3 +117,19 @@ Not defects; defaults preserve today's behavior. Added with the E1 hook rework.
   `tests/test_window.py` (hooks outside `[start, end]` skipped).
 - **Open item.** A dose-response re-measure on the pod, with these knobs on, is pending; until then
   the results in [`EXPERIMENTS.md`](EXPERIMENTS.md) hold only for the defaults.
+
+## E7 — a dropped axis file could execute code
+
+- **Symptom.** None until it matters. `HelmApply` resolved an axis from `user/steer/` or
+  `models/steer/` — directories the README invites users to fill from the network — and loaded it
+  with `torch.load`.
+- **Root cause.** `torch.load` unpickles, and unpickling runs arbitrary code. A `.pt` axis *is* a
+  pickle: a public node pack that asks users to download and drop axis files, and then unpickles
+  whatever they drop.
+- **Fix.** Axes are `.safetensors` as of 0.3.0 — a metadata header plus a raw tensor, no pickle, and
+  complete without the JSON sidecar (the block, dim and model travel in the header, which is what lets
+  `HelmApply` accept `block = -1`). The legacy read path stays for axes written by 0.2.0, now with
+  `weights_only=True`.
+- **Verification.** `tests/test_axes.py`: safetensors round-trip is bit-exact, header-only metadata
+  resolves after the sidecar is deleted, a legacy `.pt` is still read, and `.safetensors` wins over
+  `.pt` inside the same directory.

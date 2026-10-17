@@ -106,3 +106,35 @@ def test_probe_hook_writes_once_per_run_and_averages_over_steps(helm, monkeypatc
     assert tuple(rows.shape) == (6, 8)
     for i in range(6):
         assert torch.allclose(rows[i], torch.full((8,), float(i + 1))), f"block {i} mean is wrong"
+
+
+def test_probe_rows_buffer_follows_the_activation_device(helm, monkeypatch):
+    """Regression: the rows buffer was allocated on the *default* device, so a CUDA activation hit
+    "Expected all tensors to be on the same device" on the pod on the very first block. CPU-only
+    tests cannot reproduce a device mismatch, so pin the root cause instead: the buffer must be
+    allocated with the activation's own device."""
+    nodes = helm.nodes
+    dit = torch.nn.Module()
+    dit.blocks = torch.nn.ModuleList([_Const(i + 1) for i in range(6)])
+    mp = FakePatcher(types.SimpleNamespace(diffusion_model=dit))
+
+    seen = {}
+    real_zeros = torch.zeros
+
+    def spy_zeros(*args, **kwargs):
+        seen["device"] = kwargs.get("device")
+        return real_zeros(*args, **kwargs)
+
+    monkeypatch.setattr(nodes.torch, "zeros", spy_zeros)
+
+    acc = {"rows": None, "steps": 0, "n_blocks": 6, "last": False}
+    acc["reset"] = lambda: acc.update(rows=None, steps=0)
+    fn = nodes._make_probe_hook(acc, "probe_pos", "blocks", "Fake", False, "last")
+    nodes._add_hook(mp, {"fn": fn, "all_blocks": True, "start": 0.0, "end": 1.0})
+
+    x = torch.zeros(1, 8)
+    nodes._wrapper(mp)(_apply_model(dit), make_c_in(x, sig=[1.0, 0.5, 0.0]))
+
+    assert acc["rows"] is not None
+    assert seen.get("device") is not None, "probe allocated its rows buffer without a device"
+    assert seen["device"] == x.device

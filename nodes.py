@@ -424,7 +424,7 @@ def _make_probe_hook(acc, tag, module, model_name, cond_only, write_mode):
     def fn(m, args, out, flags=None, idx=0):
         v = _stack_mean(out, flags=flags, cond_only=cond_only)
         if acc["rows"] is None:
-            acc["rows"] = torch.zeros(acc["n_blocks"], v.shape[0], dtype=torch.float32)
+            acc["rows"] = torch.zeros(acc["n_blocks"], v.shape[0], dtype=v.dtype, device=v.device)
         if idx < acc["rows"].shape[0] and v.shape[0] == acc["rows"].shape[1]:
             acc["rows"][idx] += v
         if idx == 0:

@@ -993,10 +993,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "Helm on MiniMax H3 (text-to-video).\n\nUNETLoader -> HelmApply 'mood' -> HelmApply 'density' -> MiniMaxH3Director -> CreateVideo.\n\n1) Build each axis first: HelmCollect x2 (tag 'pos' then 'neg') + HelmVector  ->  models/steer/<name>.pt\n2) The 'axis' name in HelmApply must match that .pt.\n3) block 20, strength 0.01-0.3 (higher washes the frame; see calibration.json).\n\nNeeds the MiniMax H3 models (4 shown missing). Plain text-to-video works with strength 0."
+        "text": "Helm on MiniMax H3 (text-to-video).\n\nUNETLoader -> HelmApply 'mood' -> HelmApply 'density' -> MiniMaxH3Director -> CreateVideo.\n\n1) Build each axis first: HelmCollect x2 (tag 'pos' then 'neg') + HelmVector  ->  ComfyUI/user/steer/<name>.pt\n2) The 'axis' name in HelmApply must match that .pt.\n3) block 20, strength 0.01-0.3 (higher washes the frame; see calibration.json).\n\nNeeds the MiniMax H3 models (4 shown missing). Plain text-to-video works with strength 0."
       },
       "widgets_values": [
-        "Helm on MiniMax H3 (text-to-video).\n\nUNETLoader -> HelmApply 'mood' -> HelmApply 'density' -> MiniMaxH3Director -> CreateVideo.\n\n1) Build each axis first: HelmCollect x2 (tag 'pos' then 'neg') + HelmVector  ->  models/steer/<name>.pt\n2) The 'axis' name in HelmApply must match that .pt.\n3) block 20, strength 0.01-0.3 (higher washes the frame; see calibration.json).\n\nNeeds the MiniMax H3 models (4 shown missing). Plain text-to-video works with strength 0."
+        "Helm on MiniMax H3 (text-to-video).\n\nUNETLoader -> HelmApply 'mood' -> HelmApply 'density' -> MiniMaxH3Director -> CreateVideo.\n\n1) Build each axis first: HelmCollect x2 (tag 'pos' then 'neg') + HelmVector  ->  ComfyUI/user/steer/<name>.pt\n2) The 'axis' name in HelmApply must match that .pt.\n3) block 20, strength 0.01-0.3 (higher washes the frame; see calibration.json).\n\nNeeds the MiniMax H3 models (4 shown missing). Plain text-to-video works with strength 0."
       ]
     }
   ],

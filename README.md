@@ -55,7 +55,7 @@ flowchart LR
     A["HelmCollect · tag=pos · prompt A"] --> V["HelmVector"]
     B["HelmCollect · tag=neg · prompt B"] --> V
   end
-  V -- "mean_pos - mean_neg" --> F["models/steer/&lt;axis&gt;.pt"]
+  V -- "mean_pos - mean_neg" --> F["ComfyUI/user/steer/&lt;axis&gt;.pt"]
   F --> AP["HelmApply"]
   M["MODEL source<br/>(UNETLoader / H3 Director)"] --> AP
   AP -- "x + strength*axis at block K" --> S["sampler"]
@@ -71,9 +71,11 @@ flowchart LR
 
 ## Nodes
 
-- `HelmCollect` (MODEL → MODEL): hooks `diffusion_model.blocks[K]`, accumulates the mean activation over the steps, writes `models/steer/<tag>.pt`. Run once per prompt.
-- `HelmVector` (tags → STRING): `axis = mean_pos - mean_neg` → `models/steer/<name>.pt` (reusable).
-- `HelmApply` (MODEL → MODEL): hooks block K, injects `x + strength * axis` while sampling. Chain several for multiple axes.
+- `HelmCollect` (MODEL → MODEL): hooks `diffusion_model.blocks[K]`, accumulates the mean activation over the steps, writes `ComfyUI/user/steer/<tag>.pt` once per run. Run once per prompt. New widget: `cond_only` (default `False`).
+- `HelmVector` (tags → STRING): `axis = mean_pos - mean_neg` → `ComfyUI/user/steer/<name>.pt` (reusable).
+- `HelmApply` (MODEL → MODEL): hooks block K, injects `x + strength * axis` while sampling. Chain several for multiple axes. New widgets appended after the existing ones: `cond_only` (default `False`), `start_percent` (default `0.0`), `end_percent` (default `1.0`).
+
+The new widgets are appended after the existing ones, so saved graphs keep their meaning. The defaults preserve the measured result; `cond_only` and the `start_percent`/`end_percent` windowing are implemented but **not yet measured** (see [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md)).
 
 Wire `MODEL source → HelmApply → sampler`. Also works with H3's `MiniMaxH3Director`.
 
@@ -98,7 +100,7 @@ dragging the file onto the canvas.
 
 `h3_t2v_helm.json` **is** the app: open it, type a prompt into the Director, move the `mood` / `density` sliders, Queue. Two sliders and a prompt — that is the whole interface.
 
-Prebuilt axes ship in `example_axes/` (`mood.pt`, `density.pt`) so you can steer immediately, without the two collection passes — drop them into `models/steer/`.
+Prebuilt axes ship in `example_axes/` (`mood.pt`, `density.pt`) so you can steer immediately, without the two collection passes. Axis reads search `ComfyUI/user/steer/` → `ComfyUI/models/steer/` → the pack's own `example_axes/`, so they work on a fresh clone with no copying.
 
 For automation, and for the **Comfy Developer Platform**, `app/run_helm.py` runs the same graph through the **Comfy SDK** (see [Run via the Comfy SDK](#run-via-the-comfy-sdk)).
 
@@ -108,7 +110,7 @@ An axis comes from two contrastive passes at the same block:
 
 1. `HelmCollect`, tag `pos`, run with your first prompt.
 2. Same node, tag `neg`, run with a contrasting prompt.
-3. `HelmVector` (`pos`, `neg` → axis) → `models/steer/axis.pt`.
+3. `HelmVector` (`pos`, `neg` → axis) → `ComfyUI/user/steer/axis.pt`.
 4. `HelmApply` with `axis=axis`, block 20, strength 0.1; sweep `strength` (see `calibration.json`).
 
 ## Calibration
@@ -124,10 +126,12 @@ Outside the band the frame degrades.
 
 ## Notes / gotchas
 
+- **Axis storage.** Axis writes go to `ComfyUI/user/steer/` (with the `.json` sidecar beside them). Reads search, in order, `ComfyUI/user/steer/` → `ComfyUI/models/steer/` → the pack's own `example_axes/`, so the bundled `mood.pt`/`density.pt` resolve on a fresh clone. A missing axis raises a `FileNotFoundError` listing every directory searched.
 - **Aimdo.** H3's per-block prefetch raises `aimdo memory compile error` when a block's output is modified. The nodes set `comfy.memory_management.aimdo_enabled = False` for the wrapped call and restore it after.
 - **Wrapper contract.** ComfyUI calls `model_function_wrapper(apply_model, {"input","timestep","c","cond_or_uncond"})`; the forward hook is installed only for that call and removed after.
 - **H3 does not sample with `comfy.sample.sample`** — it samples inside `MiniMaxH3Director`; the nodes hook the MODEL the Director receives.
 - Restart ComfyUI after install (custom nodes load at startup).
+- **Hardening log.** The six defects fixed in 0.2.0 (silent slider drops, fresh-clone crash, block discovery, sidecar metadata, calibration wiring, per-slider strengths) are documented symptom → cause → fix → test in [`docs/HARDENING.md`](docs/HARDENING.md).
 
 ## Measured
 

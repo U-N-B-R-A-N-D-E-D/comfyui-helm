@@ -50,7 +50,7 @@
         "ltx",
         "ltxv"
       ],
-      "module": "blocks",
+      "module": "transformer_blocks",
       "n_blocks": null,
       "dim": null,
       "default_block": 20,

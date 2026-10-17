@@ -2,27 +2,31 @@
 
 Read a transformer block's mean activation for two contrastive prompts (diff-in-means) and inject
 `x + strength*axis` at that block during sampling. Weights are not modified; an axis is a small tensor
-file under models/steer/.
+file. Reads resolve `user/steer/` -> `models/steer/` -> this pack's `example_axes/`; writes always go
+to `user/steer/`.
 
 Nodes
   HelmCollect  MODEL -> MODEL   mean activation at block K for a tag (run once per prompt)
   HelmVector   tags  -> STRING  axis = mean_pos - mean_neg -> reusable axis file
   HelmApply    MODEL -> MODEL   inject x + strength*axis at block K (chain several for multiple axes)
 
-Wire MODEL source -> HelmApply -> sampler. Works on any DiT exposing a `blocks`/`layers` ModuleList
-(H3: blocks, dim 5376, block ~20; Z-Image/Lumina: layers, dim 3840, layers 9-21). Per-model defaults are
-in calibration.json; the axis scale is model-specific.
+Wire MODEL source -> HelmApply -> sampler. Works on any DiT exposing a `blocks`/`layers`/`transformer_blocks`/
+`double_blocks`/`single_blocks` ModuleList (H3: blocks, dim 5376, block ~20; Z-Image/Lumina: layers,
+dim 3840, layers 9-21). Per-model defaults are in calibration.json; the axis scale is model-specific.
 """
 import json
 import os
 import time
+from functools import lru_cache, partial
 
 import torch
 import folder_paths
 
 # --- paths / calibration -------------------------------------------------------------------
+_PACK_DIR = os.path.dirname(os.path.realpath(__file__))
 AXIS_DIR = os.path.join(folder_paths.get_user_directory(), "steer")
-_CALIB_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "calibration.json")
+_READ_DIRS = [AXIS_DIR, os.path.join(folder_paths.models_dir, "steer"), os.path.join(_PACK_DIR, "example_axes")]
+_CALIB_PATH = os.path.join(_PACK_DIR, "calibration.json")
 
 
 def _axes():
@@ -38,10 +42,36 @@ def _meta_path(name):
     return os.path.join(_axes(), f"{name}.json")
 
 
+def _resolve_axis(name):
+    tried = []
+    for d in _READ_DIRS:
+        p = os.path.join(d, f"{name}.pt")
+        tried.append(p)
+        if os.path.exists(p):
+            return p
+    raise FileNotFoundError(
+        f"axis '{name}' not found. Looked in:\n  " + "\n  ".join(tried) +
+        f"\nRun HelmCollect + HelmVector first, or drop '{name}.pt' into {_READ_DIRS[-1]}.")
+
+
+def _resolve_meta(name):
+    tried = []
+    for d in _READ_DIRS:
+        p = os.path.join(d, f"{name}.json")
+        tried.append(p)
+        if os.path.exists(p):
+            return p
+    raise FileNotFoundError(
+        f"metadata for '{name}' not found. Looked in:\n  " + "\n  ".join(tried) +
+        f"\nIt is written beside the axis by HelmCollect/HelmVector.")
+
+
 def _write_meta(name, meta):
     try:
-        meta["helm_version"] = 1
-        meta["created"] = None  # set by caller
+        meta.setdefault("helm_version", 2)
+        meta.setdefault("created", time.time())
+        meta.setdefault("model", None)
+        meta.setdefault("module", None)
         with open(_meta_path(name), "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
     except Exception as e:
@@ -50,12 +80,13 @@ def _write_meta(name, meta):
 
 def _read_meta(name):
     try:
-        with open(_meta_path(name), "r", encoding="utf-8") as f:
+        with open(_resolve_meta(name), "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return None
 
 
+@lru_cache(maxsize=1)
 def _calibration():
     try:
         with open(_CALIB_PATH, "r", encoding="utf-8") as f:
@@ -64,51 +95,192 @@ def _calibration():
         return {"models": []}
 
 
+def _calib_for(mp):
+    try:
+        cand = [mp.model.diffusion_model.__class__.__name__.lower()]
+    except Exception:
+        return None
+    try:
+        extra = str(getattr(mp.model, "model_name", "") or "").lower()
+        if extra:
+            cand.append(extra)
+    except Exception:
+        pass
+    for entry in _calibration().get("models", []):
+        for m in entry.get("match", []):
+            if any(str(m).lower() in c for c in cand):
+                return entry
+    return None
+
+
+def _model_name(mp):
+    try:
+        return mp.model.diffusion_model.__class__.__name__
+    except Exception:
+        return None
+
+
 # --- hook machinery ------------------------------------------------------------------------
 def _first(o):
     return o[0] if isinstance(o, tuple) else o
 
 
-def _stack_mean(o):
+def _stack_mean(o, flags=None, cond_only=False):
     x = _first(o).detach().float()
+    if cond_only and flags is not None:
+        try:
+            f = torch.as_tensor(flags).reshape(-1)
+            if f.numel() == x.shape[0] and f.numel() > 0:
+                sel = x[f.to(x.device) == 0]
+                if sel.shape[0] > 0:
+                    x = sel
+        except Exception:
+            pass
     while x.dim() > 1:
         x = x.mean(dim=0)
     return x  # -> [dim]
 
 
+def _mask_by_flags(d, x, flags):
+    try:
+        f = torch.as_tensor(flags).reshape(-1)
+        if f.numel() != x.shape[0]:
+            return d
+        m = (f.to(x.device) == 0).to(dtype=d.dtype, device=d.device)
+        while m.dim() < x.dim():
+            m = m.unsqueeze(-1)
+        return d * m
+    except Exception:
+        return d
+
+
+_BLOCK_ATTRS = ["blocks", "layers", "transformer_blocks", "double_blocks", "single_blocks"]
+
+
 def _find_blocks(model, which=None):
     dm = model.model.diffusion_model
-    names = [which] if which else ["blocks", "layers"]
+    names = [which] if which else list(_BLOCK_ATTRS)
     for n in names:
         mod = getattr(dm, n, None)
         if mod is not None and len(mod) > 4:
-            return getattr(dm, n)
+            return mod, n
+    present = [a for a in _BLOCK_ATTRS if getattr(dm, a, None) is not None]
     raise RuntimeError(
-        "no transformer block list on diffusion_model (looked for 'blocks'/'layers'); "
-        "pass the ModuleList name via the overrides in calibration.json or open an issue"
-    )
+        f"no transformer block list on {dm.__class__.__name__} (looked for {names}; "
+        f"module has {present or 'none of the known ones'}). Pass the attribute via calibration.json.")
 
 
-def _wrapper(mp, block_idx, on_step):
+def _flush(tag, acc, block, module, model_name):
+    if acc.get("sum") is None or acc.get("n", 0) <= 0:
+        return
+    v = acc["sum"] / acc["n"]
+    _axes()
+    torch.save(v, _axis_path(tag))
+    _write_meta(tag, {"kind": "activation", "dim": int(v.shape[0]), "block": int(block),
+                      "model": model_name, "module": module})
+
+
+def _make_collect_hook(acc, tag, block, module, model_name, cond_only, write_mode):
+    def fn(m, args, out, flags=None):
+        v = _stack_mean(out, flags=flags, cond_only=cond_only)
+        acc["sum"] = v if acc["sum"] is None else acc["sum"] + v
+        acc["n"] += 1
+        if write_mode == "each" or (write_mode == "last" and acc.get("last")):
+            _flush(tag, acc, block, module, model_name)
+        return None  # read-only
+    fn._acc = acc
+    return fn
+
+
+def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path):
+    def fn(m, args, out, flags=None):
+        x = out[0] if isinstance(out, tuple) else out
+        if x.shape[-1] != vec.shape[-1]:
+            raise RuntimeError(
+                f"axis '{axis_name}' dim {vec.shape[-1]} != block output dim {x.shape[-1]}; "
+                f"this axis was built for a different model (see {meta_path})")
+        d = vec.to(x.dtype).to(x.device) * strength
+        if cond_only and flags is not None:
+            d = _mask_by_flags(d, x, flags)
+        y = x + d
+        return (y,) + out[1:] if isinstance(out, tuple) else y
+    return fn
+
+
+_HELM_HOOKS = "helm_hooks"
+
+
+def _add_hook(mp, hook):
+    mp.model_options.setdefault(_HELM_HOOKS, []).append(hook)
+
+
+def _wrapper(mp):
     """ComfyUI calls `model_function_wrapper(apply_model, {"input","timestep","c","cond_or_uncond"})`.
-    Install the forward hook only for the model call (one step), then remove it. Aimdo (H3's per-block
-    prefetch / comfy_aimdo malloc graph) raises 'aimdo memory compile error' when a block's output is
-    modified, so disable it for the call and restore it after."""
+    All helm hooks live on the patcher (model_options['helm_hooks']) and ONE wrapper runs them, so
+    chained HelmApply nodes compose instead of overwriting each other. Aimdo (H3's per-block prefetch /
+    comfy_aimdo malloc graph) raises 'aimdo memory compile error' when a block's output is modified, so
+    disable it for the call and restore it after."""
+    prev = mp.model_options.get("model_function_wrapper")
+    if getattr(prev, "_helm_wrapper", False):
+        prev = getattr(prev, "_helm_prev", None)
+    state = {"step": 0}
+
     def run(apply_model, c_in):
         import comfy.memory_management as cm
-        prev = getattr(cm, "aimdo_enabled", None)
-        if prev is not None:
-            cm.aimdo_enabled = False
-        blocks = _find_blocks(mp)
-        if block_idx >= len(blocks):
-            raise RuntimeError(f"block {block_idx} >= {len(blocks)} on {mp.model.diffusion_model.__class__.__name__}")
-        handle = blocks[block_idx].register_forward_hook(on_step)
+        to = c_in.get("c", {}).get("transformer_options", {}) or {}
+        sig = to.get("sample_sigmas")
+        total = (len(sig) - 1) if sig is not None else None
+        if total and state["step"] >= total:
+            state["step"] = 0
+        step = state["step"]
+        state["step"] += 1
+        flags = c_in.get("cond_or_uncond")
+        hooks = mp.model_options.get(_HELM_HOOKS) or []
+        entry = _calib_for(mp)
+        blocks, _ = _find_blocks(mp, which=entry.get("module") if entry else None)
+        frac = (step / total) if total else 0.0
+        prev_aimdo = getattr(cm, "aimdo_enabled", None)
+        handles = []
         try:
+            for h in hooks:
+                acc = getattr(h.get("fn"), "_acc", None)
+                if acc is not None:
+                    if total is not None and step == 0:
+                        acc["sum"] = None
+                        acc["n"] = 0
+                    # SPEC DEVIATION: spec wrote `total is not None and ...`, which never writes when
+                    # sample_sigmas is absent; use the spec's fallback ("each") in that case.
+                    acc["last"] = (total is None) or (step + 1 >= total)
+                if frac < h.get("start", 0.0) or frac > h.get("end", 1.0):
+                    continue
+                idx = h["block"]
+                if idx >= len(blocks):
+                    raise RuntimeError(
+                        f"block {idx} >= {len(blocks)} on {mp.model.diffusion_model.__class__.__name__}")
+                handles.append(blocks[idx].register_forward_hook(partial(h["fn"], flags=flags)))
+            if prev_aimdo is not None:
+                cm.aimdo_enabled = False
+            if prev is not None:
+                return prev(apply_model, c_in)
             return apply_model(c_in["input"], c_in["timestep"], **c_in["c"], cond_or_uncond=c_in["cond_or_uncond"])
         finally:
-            handle.remove()
-            if prev is not None:
-                cm.aimdo_enabled = prev
+            for hd in handles:
+                hd.remove()
+            if prev_aimdo is not None:
+                cm.aimdo_enabled = prev_aimdo
+
+    run._helm_wrapper = True
+    run._helm_prev = prev
+    return run
+
+
+def _install_wrapper(mp):
+    # SPEC DEVIATION: ComfyUI's ModelPatcher.clone() copies `model_options` with deepcopy_list_dict, so
+    # a wrapper captured by an upstream HelmApply reads a stale `helm_hooks` list. Re-install on every
+    # node but carry the ORIGINAL foreign wrapper forward via `_helm_prev`, so the final wrapper sees
+    # every hook exactly once and any pre-existing wrapper is still chained.
+    run = _wrapper(mp)
+    mp.set_model_unet_function_wrapper(run)
     return run
 
 
@@ -120,28 +292,27 @@ class HelmCollect:
             "model": ("MODEL",),
             "tag": ("STRING", {"default": "pos"}),
             "block": ("INT", {"default": 20, "min": 0, "max": 512, "tooltip": "transformer block index to read"}),
+            "cond_only": ("BOOLEAN", {"default": False,
+                                      "tooltip": "Default False preserves the published result. True (recommended for CFG models) averages only cond batch items; current axes were NOT measured with cond_only."}),
         }}
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
     CATEGORY = "Helm"
 
-    def run(self, model, tag, block):
+    def run(self, model, tag, block, cond_only=False):
         _axes()
         mp = model.clone()
-        acc = {"sum": None, "n": 0}
-
-        def hook(m, i, o):
-            v = _stack_mean(o)
-            acc["sum"] = v if acc["sum"] is None else acc["sum"] + v
-            acc["n"] += 1
-            torch.save(acc["sum"] / max(acc["n"], 1), _axis_path(tag))
-            _write_meta(tag, {"kind": "activation", "dim": int(v.shape[0]), "block": int(block),
-                              "created": time.time()})
-            return None  # read-only
-
-        mp.set_model_unet_function_wrapper(_wrapper(mp, block, hook))
-        print(f"[helm] collecting '{tag}' at block {block} -> {_axis_path(tag)}")
+        entry = _calib_for(mp)
+        module = entry.get("module") if entry else None
+        model_name = _model_name(mp)
+        acc = {"sum": None, "n": 0, "last": False}
+        fn = _make_collect_hook(acc, tag, block, module, model_name, cond_only, "last")
+        _add_hook(mp, {"block": int(block), "fn": fn, "cond_only": bool(cond_only),
+                       "start": 0.0, "end": 1.0})
+        _install_wrapper(mp)
+        cal = f" [calibrated module={module}]" if entry else ""
+        print(f"[helm] collecting '{tag}' at block {block} -> {_axis_path(tag)}{cal}")
         return (mp,)
 
 
@@ -161,16 +332,15 @@ class HelmVector:
     CATEGORY = "Helm"
 
     def run(self, pos_tag, neg_tag, axis, safe_max=0.0):
-        p, n = _axis_path(pos_tag), _axis_path(neg_tag)
-        if not (os.path.exists(p) and os.path.exists(n)):
-            raise FileNotFoundError(f"missing axis inputs: {p if not os.path.exists(p) else n} (run HelmCollect for both prompts first)")
+        p, n = _resolve_axis(pos_tag), _resolve_axis(neg_tag)
         v = torch.load(p, map_location="cpu") - torch.load(n, map_location="cpu")
         meta = _read_meta(pos_tag) or {}
         torch.save(v, _axis_path(axis))
         _write_meta(axis, {"kind": "axis", "dim": int(v.shape[0]), "block": meta.get("block"),
+                           "model": meta.get("model"), "module": meta.get("module"),
                            "norm": round(float(v.norm()), 3),
                            "safe_max": float(safe_max) if safe_max else None,
-                           "from": {"pos": pos_tag, "neg": neg_tag}, "created": time.time()})
+                           "from": {"pos": pos_tag, "neg": neg_tag}})
         print(f"[helm] axis '{axis}' dim={tuple(v.shape)} norm={float(v.norm()):.3f} safe_max={safe_max or '-'} -> {_axis_path(axis)}")
         return (axis,)
 
@@ -186,18 +356,26 @@ class HelmApply:
                                    "tooltip": "scale of the injected axis. Model-specific; see calibration.json"}),
             "dial": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01,
                                "tooltip": "optional normalized 0-1 dial. If >0 and the axis recorded a safe_max, strength = dial * safe_max (keeps you inside the verified band)."}),
+            "cond_only": ("BOOLEAN", {"default": False,
+                                      "tooltip": "Default False preserves the published result. True (recommended for CFG models) adds the axis only to cond batch items; current axes were NOT measured with cond_only."}),
+            "start_percent": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                                        "tooltip": "sampling-fraction window start. Default 0.0 preserves the published result."}),
+            "end_percent": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                                      "tooltip": "sampling-fraction window end. Default 1.0 preserves the published result."}),
         }}
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
     CATEGORY = "Helm"
 
-    def run(self, model, axis, block, strength, dial=0.0):
-        path = _axis_path(axis)
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"axis '{axis}' not found at {path} (run HelmCollect + HelmVector first)")
+    def run(self, model, axis, block, strength, dial=0.0, cond_only=False, start_percent=0.0, end_percent=1.0):
+        path = _resolve_axis(axis)
         vec = torch.load(path, map_location="cpu")
         meta = _read_meta(axis) or {}
+        try:
+            meta_path = _resolve_meta(axis)
+        except FileNotFoundError:
+            meta_path = _meta_path(axis)
 
         safe = meta.get("safe_max")
         if dial and safe:
@@ -208,21 +386,15 @@ class HelmApply:
             strength = float(safe) if strength > 0 else -float(safe)
 
         mp = model.clone()
-
-        def hook(m, i, o):
-            x = o[0] if isinstance(o, tuple) else o
-            if x.shape[-1] != vec.shape[-1]:
-                raise RuntimeError(
-                    f"axis '{axis}' dim {vec.shape[-1]} != block output dim {x.shape[-1]}; "
-                    f"this axis was built for a different model (see {_meta_path(axis)})")
-            d = vec.to(x.dtype).to(x.device)
-            if isinstance(o, tuple):
-                return (o[0] + strength * d,) + o[1:]
-            return o + strength * d
-
-        mp.set_model_unet_function_wrapper(_wrapper(mp, block, hook))
+        entry = _calib_for(mp)
+        fn = _make_apply_hook(vec, strength, axis, cond_only, meta_path)
+        _add_hook(mp, {"block": int(block), "fn": fn, "cond_only": bool(cond_only),
+                       "start": float(start_percent), "end": float(end_percent)})
+        _install_wrapper(mp)
+        cal = f", calibrated module={entry.get('module')}" if entry else ""
         print(f"[helm] applying '{axis}' at block {block}, strength={strength} "
-              f"(norm={float(vec.norm()):.2f}, safe_max={safe or '-'}, dim={vec.shape[-1]})")
+              f"(norm={float(vec.norm()):.2f}, safe_max={safe or '-'}, dim={vec.shape[-1]}, "
+              f"window={start_percent}-{end_percent}{cal})")
         return (mp,)
 
 

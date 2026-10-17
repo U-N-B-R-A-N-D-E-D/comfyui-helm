@@ -1,7 +1,10 @@
 {
   "kind": "axis",
+  "created": 1792152000.0,
   "dim": 5376,
   "block": 20,
+  "model": "MiniMaxH3Model",
+  "module": "blocks",
   "norm": 2740.0,
   "safe_max": 0.3,
   "from": {
@@ -9,5 +12,5 @@
     "neg": "packed hall"
   },
   "note": "built on MiniMax H3 (block 20). Removes content; geometry holds.",
-  "helm_version": 1
+  "helm_version": 2
 }

@@ -1,0 +1,8 @@
+Helm (comfyui-helm) is MIT-licensed (see LICENSE). It runs third-party models, which keep their own terms:
+
+- MiniMax H3 (MiniMaxAI/MiniMax-H3): MiniMax H3 Community License Agreement. Territory, use and commercial
+  terms apply; the license requires displaying "MiniMax H3" in commercial products. This project does not
+  redistribute the weights.
+- Z-Image / Lumina2 (Tongyi/Alibaba): per its model license. This project does not redistribute the weights.
+
+No model weights, LoRAs, or datasets are included in this repository.

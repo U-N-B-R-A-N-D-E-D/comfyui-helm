@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "note": "Per-model defaults for HelmApply. `strength` ranges are relative to the axis vector's own scale, which is model-specific — always confirm with 1-2 renders (start at `default`). `tested: false` marks per-model defaults that are not yet verified.",
+  "models": [
+    {
+      "match": [
+        "minimax",
+        "h3"
+      ],
+      "module": "blocks",
+      "n_blocks": 50,
+      "dim": 5376,
+      "default_block": 20,
+      "sweet_blocks": [
+        15,
+        35
+      ],
+      "strength": {
+        "min": 0.01,
+        "max": 0.5,
+        "default": 0.1
+      },
+      "evidence": "Measured 2026-10-16: axis norm ~3000-4000; λ 0.01-0.3 = monotonic lighting/mood shift, subject preserved; λ>=1 destroys the frame.",
+      "tested": true
+    },
+    {
+      "match": [
+        "z_image",
+        "z-image",
+        "lumina"
+      ],
+      "module": "layers",
+      "n_blocks": 30,
+      "dim": 3840,
+      "default_block": 15,
+      "sweet_blocks": [
+        9,
+        21
+      ],
+      "strength": {
+        "min": 0.5,
+        "max": 3.0,
+        "default": 1.5
+      },
+      "evidence": "Measured 2026-10-16: axis norm ~19; layer 0 destroys the image; layers 9-21 give clean, subject-preserving, monotonic control (green-magenta axis tested).",
+      "tested": true
+    },
+    {
+      "match": [
+        "ltx",
+        "ltxv"
+      ],
+      "module": "blocks",
+      "n_blocks": null,
+      "dim": null,
+      "default_block": 20,
+      "strength": {
+        "min": 0.05,
+        "max": 0.5,
+        "default": 0.15
+      },
+      "tested": false,
+      "evidence": "UNTESTED: LTX weights were not at hand. block/strength are H3 defaults and must be confirmed with a sweep. Ships as example_workflows/ltx_t2v_helm.json (official LTX-2.3 t2v blueprint + HelmApply)."
+    }
+  ]
+}

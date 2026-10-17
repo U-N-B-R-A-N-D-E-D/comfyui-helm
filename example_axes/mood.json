@@ -1,0 +1,13 @@
+{
+  "kind": "axis",
+  "dim": 5376,
+  "block": 20,
+  "norm": 3170.8,
+  "safe_max": 0.3,
+  "from": {
+    "pos": "bw/muted",
+    "neg": "saturated"
+  },
+  "note": "built on MiniMax H3 (block 20). Tone/brightness direction.",
+  "helm_version": 1
+}

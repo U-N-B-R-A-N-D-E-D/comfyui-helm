@@ -75,7 +75,7 @@ flowchart LR
 - `HelmVector` (tags → STRING): `axis = mean_pos - mean_neg` → `ComfyUI/user/steer/<name>.safetensors` (reusable).
 - `HelmApply` (MODEL → MODEL): hooks block K, injects `x + strength * axis` while sampling. Chain several for multiple axes. New widgets appended after the existing ones: `cond_only` (default `False`), `start_percent` (default `0.0`), `end_percent` (default `1.0`).
 - `HelmProbe` (MODEL → MODEL): reads **every** block for one tag. Run it twice (tag `probe_pos`, then `probe_neg`) to profile a model you have not measured.
-- `HelmProbeReport` (tags → INT, FLOAT): ranks the blocks by separation and returns a **suggested block and strength** (both heuristic; see below).
+- `HelmProbeReport` (tags → INT): ranks the blocks by separation and returns the highest-separation block in the middle 50% — a measurement, not a validated picker (see below).
 
 The new widgets are appended after the existing ones, so saved graphs keep their meaning. The defaults preserve the measured result; `cond_only` and the `start_percent`/`end_percent` windowing are implemented but **not yet measured** (see [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md)).
 
@@ -130,13 +130,13 @@ Outside the band the frame degrades.
 
 An axis is **one `.safetensors` file**: the tensor plus its own metadata (`dim`, `block`, `model`, `module`, `norm`, `safe_max`, `created`) in the header. There is no pickle anywhere — a `.pt` written by 0.2.0 is still *read* (with `weights_only=True`), but nothing writes one. Because the block travels *inside* the file, `HelmApply` accepts `block = -1` and adopts it, and the JSON sidecar beside the axis is a convenience, not a requirement — the axis is complete without it.
 
-To onboard a model nobody has measured yet:
+To profile a model nobody has measured yet:
 
 1. `HelmProbe`, tag `probe_pos`, run once with your first prompt.
 2. The same node, tag `probe_neg`, run with the contrasting prompt.
-3. `HelmProbeReport` (`probe_pos`, `probe_neg`) — prints the per-block separation ranking, writes `ComfyUI/user/steer/probe_report.json`, and returns a **suggested block and strength**.
+3. `HelmProbeReport` (`probe_pos`, `probe_neg`) — prints the per-block separation ranking, writes `ComfyUI/user/steer/probe_report.json`, and returns the block where the two prompts separate most.
 
-The separation profile is a measurement. The two suggestions are **heuristics** — the peak inside the middle 50% of blocks (early blocks destroy the frame), and a strength of `0.3 × |mu| / |dmu|`. They are a starting point for the 1–2 render confirmation, not a calibration, and the report is written with `"tested": false`.
+The profile is a **measurement**. It is **not a block picker**: on Z-Image the peak sits at block 7 while the band we verified by rendering is 9–21 — and the naive global peak is block 0, which destroys the frame. We also built a strength estimator (perturbation ≈30% of the activation norm) and **removed it**: measured on Z-Image it was ~10× out. Use the profile as the starting point for the 1–2 render sweep the Calibration section already asks for; the numbers are in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) §D.
 
 ## Notes / gotchas
 

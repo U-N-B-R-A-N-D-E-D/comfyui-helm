@@ -12,9 +12,10 @@ Nodes
   HelmApply    MODEL -> MODEL   inject x + strength*axis at block K (chain several for multiple axes)
 
 Model onboarding
-  HelmProbe        MODEL -> MODEL      read EVERY block for a tag (run twice: pos, then neg)
-  HelmProbeReport  tags  -> INT/FLOAT  per-block separation ranking; suggests a block + strength
-                                       (both heuristic) and writes user/steer/probe_report.json
+  HelmProbe        MODEL -> MODEL  read EVERY block for a tag (run twice: pos, then neg)
+  HelmProbeReport  tags  -> INT    per-block separation ranking -> user/steer/probe_report.json, plus
+                                   the highest-separation block in the middle 50%. That peak is a
+                                   measurement, not a validated picker (docs/EXPERIMENTS.md D)
 
 Wire MODEL source -> HelmApply -> sampler. Works on any DiT exposing a `blocks`/`layers`/`transformer_blocks`/
 `double_blocks`/`single_blocks` ModuleList (H3: blocks, dim 5376, block ~20; Z-Image/Lumina: layers,
@@ -379,10 +380,11 @@ def _install_wrapper(mp):
 
 
 # --- probe: per-block sensitivity profile (onboarding a new model) --------------------------
-# On H3 the verified safe_max (0.3) times the shipped axis norm (~3170) is a perturbation around
-# 30% of the block's activation norm. SAFE_FRACTION turns the probe's own measured norms into a
-# starting-point strength. It is a HEURISTIC from one measured model -- not a guarantee.
-SAFE_FRACTION = 0.3
+# The probe MEASURES how far two contrast prompts separate, block by block. That profile is data.
+# What it does NOT do is pick the block for you: measured on Z-Image, the separation peak is block 7
+# while the band verified by rendering is 9-21, and the global peak is block 0 (which destroys the
+# frame). We also tried a strength estimate from the norms and it was ~10x off there, so there is no
+# strength suggestion. See docs/EXPERIMENTS.md section D.
 
 
 def _probe_profile(pos, neg):
@@ -401,9 +403,7 @@ def _probe_profile(pos, neg):
     return {
         "n_blocks": n,
         "dim": int(pos.shape[1]),
-        "suggested": {"block": k,
-                      "strength": round(float(SAFE_FRACTION * mu[k] / (dn[k] + 1e-8)), 4),
-                      "separation": round(float(sep[k]), 4)},
+        "peak": {"block": k, "separation": round(float(sep[k]), 4)},
         "ranking": [{"block": int(i), "separation": round(float(sep[i]), 4),
                      "cosine": round(float(cos[i]), 4), "mu_norm": round(float(mu[i]), 2),
                      "delta_norm": round(float(dn[i]), 2)}
@@ -600,8 +600,8 @@ class HelmProbeReport:
             "top": ("INT", {"default": 5, "min": 1, "max": 64,
                             "tooltip": "how many ranked blocks to print"}),
         }}
-    RETURN_TYPES = ("INT", "FLOAT")
-    RETURN_NAMES = ("block", "strength")
+    RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("peak_block",)
     FUNCTION = "run"
     CATEGORY = "Helm"
 
@@ -613,27 +613,25 @@ class HelmProbeReport:
                 f"probe files must both be [n_blocks, dim] tensors from HelmProbe with matching shapes; "
                 f"got {tuple(P.shape)} for '{pos_tag}' and {tuple(N.shape)} for '{neg_tag}'")
         prof = _probe_profile(P, N)
-        sug = prof["suggested"]
+        peak = prof["peak"]
         meta = _read_meta(pos_tag) or {}
         report = {"kind": "probe_report", "created": time.time(), "pos_tag": pos_tag, "neg_tag": neg_tag,
-                  "model": meta.get("model"), "module": meta.get("module"),
-                  "heuristic": {"safe_fraction": SAFE_FRACTION,
-                                "band": "middle 50% of blocks (early blocks destroy the frame)"},
-                  **prof}
+                  "model": meta.get("model"), "module": meta.get("module"), **prof}
         path = os.path.join(_axes(), "probe_report.json")
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2)
         except Exception as e:
             print(f"[helm] could not write {path}: {e}")
-        print("[helm] probe report — separation (high = stronger contrast at that block):")
+        print("[helm] probe report — separation (high = the two prompts differ more at that block):")
         for row in prof["ranking"][:max(1, int(top))]:
             print(f"[helm]   block {row['block']:>3}: sep={row['separation']:.4f} cos={row['cosine']:+.4f} "
                   f"|dmu|={row['delta_norm']:.1f} |mu|={row['mu_norm']:.1f}")
-        print(f"[helm] suggested block {sug['block']} of {prof['n_blocks']} and strength ~{sug['strength']} "
-              f"— both HEURISTIC (peak in the middle 50%; {SAFE_FRACTION} x |mu|/|dmu|). "
-              f"Confirm with 1-2 renders. Report -> {path}")
-        return (int(sug["block"]), float(sug["strength"]))
+        print(f"[helm] highest separation in the middle 50%: block {peak['block']} of {prof['n_blocks']} "
+              f"(sep={peak['separation']}). This is a MEASUREMENT, not a validated block picker — on "
+              f"Z-Image the peak sat at 7 while the band verified by rendering is 9-21. Sweep strength by "
+              f"hand: the scale is model-specific. Report -> {path}")
+        return (int(peak["block"]),)
 
 
 NODE_CLASS_MAPPINGS = {"HelmCollect": HelmCollect, "HelmVector": HelmVector, "HelmApply": HelmApply,

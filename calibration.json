@@ -42,7 +42,7 @@
         "max": 3.0,
         "default": 1.5
       },
-      "evidence": "Measured 2026-10-16: axis norm ~19; layer 0 destroys the image; layers 9-21 give clean, subject-preserving, monotonic control (green-magenta axis tested).",
+      "evidence": "Measured 2026-10-16: axis norm ~19; layer 0 destroys the image; layers 9-21 give clean, subject-preserving, monotonic control (green-magenta axis tested). HelmProbe 2026-10-17: the empty-vs-packed separation peaks at block 0 (global) and block 7 (middle band) - the probe is a profile, not a picker; band 9-21 remains the rendered result (docs/EXPERIMENTS.md D).",
       "tested": true
     },
     {

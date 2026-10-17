@@ -114,3 +114,41 @@ the default (off) settings.
   at high strength is the signature of pushing a sample off the model's manifold.
 - Not a comparison against prompt-only or LoRA baselines. We have not measured those.
 - One model (H3) for A and B, one contrast pair each.
+
+## D. The probe: what a per-block profile tells us, and what it does not (Z-Image)
+
+`HelmProbe` exists to answer "which block?" without a manual sweep: it reads *every* block over two
+contrastive passes and ranks them by how far apart the two prompts sit, as
+`||mu_pos - mu_neg|| / mean(||mu_pos||, ||mu_neg||)` — scale-free, so blocks compare to each other.
+Run on Z-Image (30 layers, dim 3840, `NextDiT`, 6-step turbo graph, the *same* empty-vs-packed contrast
+as §C):
+
+| block | separation | cosine | \|mu\| | \|dmu\| |
+|--:|--:|--:|--:|--:|
+| 0 | 0.213 | 0.978 | 27 | 5.8 |
+| 3 | 0.082 | 0.997 | 79 | 6.5 |
+| 7 | 0.034 | 0.9995 | 230 | 7.8 |
+| 9 | 0.033 | 0.9997 | 334 | 11.1 |
+| 15 | 0.012 | 0.9999 | 964 | 11.5 |
+| 18 | 0.011 | 0.9999 | 1212 | 13.5 |
+| 29 | 0.085 | 0.996 | 1112 | 94 |
+
+**Reading — this is data.** The separation is structural, not noise: it is largest at the first blocks,
+falls monotonically into the middle (minimum at block 18), and rises again at the end. The two prompts
+pull hardest at the extremes of the stack.
+
+**What it does NOT do: pick the block.** The band *verified by rendering* is layers 9–21 (default 15,
+`calibration.json`). The probe's highest-separation block inside the middle 50% is **7** — two blocks
+below the band — and the naive global peak is **block 0**, which we already know destroys the frame.
+Trust the global peak and you steer exactly where any perturbation wrecks the image.
+
+**A strength estimator we built, measured, and removed.** From the H3 numbers (a perturbation ≈30% of the
+block's activation norm across the verified band) we derived `strength ≈ 0.3 × |mu| / |dmu|`. On Z-Image
+it returns **8.8** at the peak, against a verified band of **0.5–3** — an order of magnitude out. So the
+estimator is not in the code: a number that wrong, under the word "suggested", is worse than no number.
+The usable scale is model-specific; confirm it with the 1–2 renders `calibration.json` already asks for.
+
+**Conclusion.** `HelmProbeReport` returns the separation profile and the middle-band peak *as a
+measurement* — a starting point for a short sweep, not an auto-calibrator. **Caveat:** one model, one
+contrast, one graph. H3 was not probed: the GPU window was shared with another workload, and the Z-Image
+result already answers the question this feature was built on.

@@ -21,18 +21,17 @@ def _planted(n_blocks=20, dim=8, seed=0):
 
 def test_probe_profile_finds_the_planted_block(helm):
     prof = helm.nodes._probe_profile(*_planted())
-    assert prof["suggested"]["block"] == BAND
+    assert prof["peak"]["block"] == BAND
     assert prof["ranking"][0]["block"] == BAND
     assert prof["dim"] == 8 and prof["n_blocks"] == 20
-    assert prof["suggested"]["strength"] > 0
 
 
 def test_probe_profile_separation_is_scale_free(helm):
     pos, neg = _planted()
     a = helm.nodes._probe_profile(pos, neg)
     b = helm.nodes._probe_profile(pos * 100.0, neg * 100.0)
-    assert a["suggested"]["separation"] == b["suggested"]["separation"]
-    assert a["suggested"]["block"] == b["suggested"]["block"]
+    assert a["peak"]["separation"] == b["peak"]["separation"]
+    assert a["peak"]["block"] == b["peak"]["block"]
 
 
 def test_probe_report_round_trip(helm):
@@ -41,13 +40,12 @@ def test_probe_report_round_trip(helm):
                                                "model": "FakeDiT", "module": "blocks"})
     helm.nodes._save_tensor("probe_neg", neg, {"kind": "probe", "n_blocks": 20, "dim": 8,
                                                "model": "FakeDiT", "module": "blocks"})
-    block, strength = helm.nodes.HelmProbeReport().run("probe_pos", "probe_neg", 3)
-    assert block == BAND and strength > 0
+    block = helm.nodes.HelmProbeReport().run("probe_pos", "probe_neg", 3)[0]
+    assert block == BAND
     with open(f"{helm.steer}/probe_report.json", encoding="utf-8") as f:
         import json
         report = json.load(f)
-    assert report["suggested"]["block"] == BAND and report["model"] == "FakeDiT"
-    assert report["heuristic"]["safe_fraction"] == helm.nodes.SAFE_FRACTION
+    assert report["peak"]["block"] == BAND and report["model"] == "FakeDiT"
 
 
 def test_probe_report_rejects_mismatched_shapes(helm):

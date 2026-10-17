@@ -118,10 +118,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "HelmVector: axis = mean(pos) - mean(neg).\n\n1) Run HelmCollect twice: tag 'pos' with prompt A, then tag 'neg' with prompt B.\n2) Set pos_tag / neg_tag to those tags, give the axis a name.\n3) Run: writes models/steer/<axis>.pt (tiny vector file).\n4) Type that name into HelmApply's 'axis' widget.\n\nPreviewAny shows the result. This node needs no model."
+        "text": "HelmVector: axis = mean(pos) - mean(neg).\n\n1) Run HelmCollect twice: tag 'pos' with prompt A, then tag 'neg' with prompt B.\n2) Set pos_tag / neg_tag to those tags, give the axis a name.\n3) Run: writes ComfyUI/user/steer/<axis>.pt (tiny vector file).\n4) Type that name into HelmApply's 'axis' widget.\n\nPreviewAny shows the result. This node needs no model."
       },
       "widgets_values": [
-        "HelmVector: axis = mean(pos) - mean(neg).\n\n1) Run HelmCollect twice: tag 'pos' with prompt A, then tag 'neg' with prompt B.\n2) Set pos_tag / neg_tag to those tags, give the axis a name.\n3) Run: writes models/steer/<axis>.pt (tiny vector file).\n4) Type that name into HelmApply's 'axis' widget.\n\nPreviewAny shows the result. This node needs no model."
+        "HelmVector: axis = mean(pos) - mean(neg).\n\n1) Run HelmCollect twice: tag 'pos' with prompt A, then tag 'neg' with prompt B.\n2) Set pos_tag / neg_tag to those tags, give the axis a name.\n3) Run: writes ComfyUI/user/steer/<axis>.pt (tiny vector file).\n4) Type that name into HelmApply's 'axis' widget.\n\nPreviewAny shows the result. This node needs no model."
       ]
     }
   ],

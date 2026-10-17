@@ -67,7 +67,7 @@ flowchart LR
 | `calibration.json` | Per-model defaults: module, block, strength band, axis norm |
 | `example_workflows/` | Loadable UI graphs (H3, Krea2) + one API-format graph |
 | `app/run_helm.py` | Runner for the Comfy SDK |
-| `docs/images/` | Evidence figures (dose-response, axis vs magnitude, sweeps) + the demo |
+| `docs/images/` | Evidence figures (dose-response, axis vs magnitude, sweeps) |
 
 ## Nodes
 
@@ -212,7 +212,7 @@ Results: the clone installs cleanly and `HelmCollect` / `HelmVector` / `HelmAppl
 
 ## Example outputs
 
-`examples/` holds a before/after pair of the same prompt and seed with the slider at `0.00` and `0.25` (`density` axis): `hero_strength_0.00.mp4`, `hero_strength_0.25.mp4`.
+`examples/` holds a before/after pair of the same prompt and seed with the slider at `0.00` and `0.25` (`density` axis) as stills: `hero_strength_0.00.png`, `hero_strength_0.25.png`. The demo video is **not** in this repo — GitHub keeps images here; the moving version lives alongside the other releases.
 
 ## Licensing
 

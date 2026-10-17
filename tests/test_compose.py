@@ -7,6 +7,7 @@ will silently drop the second hook.
 import os
 import types
 
+import pytest
 import torch
 
 import conftest
@@ -15,6 +16,22 @@ from conftest import FakePatcher, make_apply_model, make_c_in, make_dit
 
 def _write_axis(helm, name, vec):
     torch.save(vec, os.path.join(helm.steer, f"{name}.pt"))
+
+
+def test_block_minus_one_adopts_the_block_recorded_in_the_axis(helm):
+    nodes = helm.nodes
+    nodes._save_axis("auto", torch.ones(8), {"kind": "axis", "dim": 8, "block": 3})
+    dit = make_dit(dim=8, n=6)
+    mp = nodes.HelmApply().run(FakePatcher(types.SimpleNamespace(diffusion_model=dit)), "auto", -1, 0.5)[0]
+    assert mp.model_options["helm_hooks"][0]["block"] == 3
+
+
+def test_block_minus_one_without_a_recorded_block_is_an_error(helm):
+    nodes = helm.nodes
+    nodes._save_axis("nob", torch.ones(8), {"kind": "axis", "dim": 8})
+    dit = make_dit(dim=8, n=6)
+    with pytest.raises(ValueError):
+        nodes.HelmApply().run(FakePatcher(types.SimpleNamespace(diffusion_model=dit)), "nob", -1, 0.5)
 
 
 def test_two_chained_helmapply_both_change_output(helm):

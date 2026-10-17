@@ -23,7 +23,38 @@ def test_resolution_falls_back_to_models_dir(helm):
 
 def test_resolution_falls_back_to_example_axes(helm):
     resolved = helm.nodes._resolve_axis("mood")
-    assert resolved == os.path.join(helm.pack, "example_axes", "mood.pt")
+    assert resolved == os.path.join(helm.pack, "example_axes", "mood.safetensors")
+
+
+def test_resolution_prefers_safetensors_over_pt_in_the_same_dir(helm):
+    _save(os.path.join(helm.steer, "both.pt"), torch.ones(3))
+    helm.nodes._save_axis("both", torch.zeros(3) + 5, {"kind": "axis", "dim": 3})
+    assert helm.nodes._resolve_axis("both") == os.path.join(helm.steer, "both.safetensors")
+
+
+def test_legacy_pt_is_still_readable(helm):
+    _save(os.path.join(helm.steer, "old.pt"), torch.arange(4, dtype=torch.float32))
+    vec = helm.nodes._load_axis(helm.nodes._resolve_axis("old"))
+    assert torch.equal(vec, torch.arange(4, dtype=torch.float32))
+    assert vec.dtype == torch.float32
+
+
+def test_meta_from_header_casts_types(helm):
+    header = {"kind": "axis", "dim": "5376", "block": "20", "norm": "3170.8",
+              "safe_max": "0.3", "model": "", "from": '{"pos": "a", "neg": "b"}'}
+    meta = helm.nodes._meta_from_header(header)
+    assert meta["dim"] == 5376 and meta["block"] == 20
+    assert meta["norm"] == 3170.8 and meta["safe_max"] == 0.3
+    assert meta["model"] is None
+    assert meta["from"] == {"pos": "a", "neg": "b"}
+
+
+def test_axis_file_is_self_describing_without_the_sidecar(helm):
+    helm.nodes._save_axis("lone", torch.ones(6), {"kind": "axis", "dim": 6, "block": 12,
+                                                  "model": "MiniMaxH3Model", "module": "blocks"})
+    os.remove(os.path.join(helm.steer, "lone.json"))
+    meta = helm.nodes._read_meta("lone")
+    assert meta["block"] == 12 and meta["dim"] == 6 and meta["module"] == "blocks"
 
 
 def test_resolution_order_user_beats_models_and_pack(helm):

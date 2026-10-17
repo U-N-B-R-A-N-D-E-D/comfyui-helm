@@ -126,6 +126,12 @@ An axis comes from two contrastive passes at the same block:
 
 Outside the band the frame degrades.
 
+## In ComfyUI
+
+![the pack in ComfyUI](docs/images/ui_in_comfyui.png)
+
+`HelmApply` sits between the model and the sampler with one box per axis — `axis`, `block`, `strength`, a normalized `dial`, and the sampling window. Chain a second one for a second axis.
+
 ## The axis file, and onboarding a new model
 
 An axis is **one `.safetensors` file**: the tensor plus its own metadata (`dim`, `block`, `model`, `module`, `norm`, `safe_max`, `created`) in the header. There is no pickle anywhere — a `.pt` written by 0.2.0 is still *read* (with `weights_only=True`), but nothing writes one. Because the block travels *inside* the file, `HelmApply` accepts `block = -1` and adopts it, and the JSON sidecar beside the axis is a convenience, not a requirement — the axis is complete without it.

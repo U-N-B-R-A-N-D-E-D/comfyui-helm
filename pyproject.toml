@@ -1,10 +1,13 @@
 [project]
 name = "comfyui-helm"
 description = "Training-free activation steering for ComfyUI: read a transformer block's direction between two prompts and inject it with a single strength scalar. Open weights only."
-version = "0.1.0"
+version = "0.2.0"
 license = { file = "LICENSE" }
 dependencies = []
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = ["pytest"]
 
 [project.urls]
 Repository = "https://github.com/U-N-B-R-A-N-D-E-D/comfyui-helm"
@@ -13,3 +16,7 @@ Repository = "https://github.com/U-N-B-R-A-N-D-E-D/comfyui-helm"
 PublisherId = "unbranded"
 DisplayName = "Helm"
 Icon = ""
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--confcutdir=tests"

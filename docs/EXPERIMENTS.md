@@ -90,6 +90,24 @@ noted in §B.
 **Infra note.** A first attempt over SSH was killed by the pod's **idle watchdog** (SSH is not
 counted as activity); the successful run went through the pod-manager's job path.
 
+## Knobs not yet measured
+
+Three controls are implemented and off — in their default state they reproduce every number above
+exactly. None of them has been through a dose-response re-measure on the pod yet, so treat them as
+untested knobs, not results:
+
+- **`cond_only`** (`HelmCollect`, `HelmApply`; default `False`). Restricts collection and injection to
+  the conditional batch items, leaving the unconditional pass untouched. This is the recommended
+  setting for CFG models; the shipped axes and every table here were measured with it off.
+- **Windowing** (`HelmApply` `start_percent` / `end_percent`; defaults `0.0` / `1.0`). Applies the axis
+  only within a fraction of the sampling schedule. The default window spans the whole run, i.e. today's
+  behavior.
+- **Per-slider strength** (`app/run_helm.py --set axis=strength`). Sets a strength per `HelmApply` node
+  instead of one global value. Exercised in unit tests only; not run against a live server.
+
+A re-measure covering these is pending. Until it exists, the published band and figures stand only for
+the default (off) settings.
+
 ## What this is not
 
 - Not a claim that "density" or "mood" are *concepts*. They are low-level directions; the wash

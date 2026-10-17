@@ -17,10 +17,10 @@ def test_one_write_per_run_and_acc_resets(helm, monkeypatch):
 
     saves = []
 
-    def fake_save(tensor, path):
-        saves.append((tensor.detach().clone(), str(path)))
+    def fake_save(name, tensor, meta):
+        saves.append((tensor.detach().clone(), str(name)))
 
-    monkeypatch.setattr(nodes.torch, "save", fake_save)
+    monkeypatch.setattr(nodes, "_save_axis", fake_save)
 
     mp = nodes.HelmCollect().run(FakePatcher(types.SimpleNamespace(diffusion_model=dit)), "pos", 2)[0]
     wrapper = mp.model_options["model_function_wrapper"]
@@ -29,13 +29,13 @@ def test_one_write_per_run_and_acc_resets(helm, monkeypatch):
 
     wrapper(apply_model, c_in)  # step 0
     wrapper(apply_model, c_in)  # step 1 (last) -> one write for run 1
-    first_run = [t for t, p in saves if p.endswith("pos.pt")]
+    first_run = [t for t, p in saves if p == "pos"]
     assert len(first_run) == 1, "expected exactly one axis write per run"
 
     saves.clear()
     holder["x"] = torch.full((1, 8), 9.0)
     wrapper(apply_model, c_in)  # new run: step must reset to 0
     wrapper(apply_model, c_in)
-    second_run = [t for t, p in saves if p.endswith("pos.pt")]
+    second_run = [t for t, p in saves if p == "pos"]
     assert len(second_run) == 1, "expected exactly one axis write on the second run"
     assert torch.allclose(second_run[0], torch.full((8,), 9.0)), "acc leaked across runs"

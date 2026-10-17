@@ -55,7 +55,7 @@ flowchart LR
     A["HelmCollect · tag=pos · prompt A"] --> V["HelmVector"]
     B["HelmCollect · tag=neg · prompt B"] --> V
   end
-  V -- "mean_pos - mean_neg" --> F["ComfyUI/user/steer/&lt;axis&gt;.pt"]
+  V -- "mean_pos - mean_neg" --> F["ComfyUI/user/steer/&lt;axis&gt;.safetensors"]
   F --> AP["HelmApply"]
   M["MODEL source<br/>(UNETLoader / H3 Director)"] --> AP
   AP -- "x + strength*axis at block K" --> S["sampler"]
@@ -63,7 +63,7 @@ flowchart LR
 
 | Path | Role |
 |------|------|
-| `nodes.py` | `HelmCollect` / `HelmVector` / `HelmApply` (category `Helm`) |
+| `nodes.py` | `HelmCollect` / `HelmVector` / `HelmApply` + `HelmProbe` / `HelmProbeReport` (category `Helm`) |
 | `calibration.json` | Per-model defaults: module, block, strength band, axis norm |
 | `example_workflows/` | Loadable UI graphs (H3, Krea2) + one API-format graph |
 | `app/run_helm.py` | Runner for the Comfy SDK |
@@ -71,9 +71,11 @@ flowchart LR
 
 ## Nodes
 
-- `HelmCollect` (MODEL → MODEL): hooks `diffusion_model.blocks[K]`, accumulates the mean activation over the steps, writes `ComfyUI/user/steer/<tag>.pt` once per run. Run once per prompt. New widget: `cond_only` (default `False`).
-- `HelmVector` (tags → STRING): `axis = mean_pos - mean_neg` → `ComfyUI/user/steer/<name>.pt` (reusable).
+- `HelmCollect` (MODEL → MODEL): hooks `diffusion_model.blocks[K]`, accumulates the mean activation over the steps, writes `ComfyUI/user/steer/<tag>.safetensors` once per run. Run once per prompt. New widget: `cond_only` (default `False`).
+- `HelmVector` (tags → STRING): `axis = mean_pos - mean_neg` → `ComfyUI/user/steer/<name>.safetensors` (reusable).
 - `HelmApply` (MODEL → MODEL): hooks block K, injects `x + strength * axis` while sampling. Chain several for multiple axes. New widgets appended after the existing ones: `cond_only` (default `False`), `start_percent` (default `0.0`), `end_percent` (default `1.0`).
+- `HelmProbe` (MODEL → MODEL): reads **every** block for one tag. Run it twice (tag `probe_pos`, then `probe_neg`) to profile a model you have not measured.
+- `HelmProbeReport` (tags → INT, FLOAT): ranks the blocks by separation and returns a **suggested block and strength** (both heuristic; see below).
 
 The new widgets are appended after the existing ones, so saved graphs keep their meaning. The defaults preserve the measured result; `cond_only` and the `start_percent`/`end_percent` windowing are implemented but **not yet measured** (see [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md)).
 
@@ -100,7 +102,7 @@ dragging the file onto the canvas.
 
 `h3_t2v_helm.json` **is** the app: open it, type a prompt into the Director, move the `mood` / `density` sliders, Queue. Two sliders and a prompt — that is the whole interface.
 
-Prebuilt axes ship in `example_axes/` (`mood.pt`, `density.pt`) so you can steer immediately, without the two collection passes. Axis reads search `ComfyUI/user/steer/` → `ComfyUI/models/steer/` → the pack's own `example_axes/`, so they work on a fresh clone with no copying.
+Prebuilt axes ship in `example_axes/` (`mood.safetensors`, `density.safetensors`) so you can steer immediately, without the two collection passes. Axis reads search `ComfyUI/user/steer/` → `ComfyUI/models/steer/` → the pack's own `example_axes/`, so they work on a fresh clone with no copying.
 
 For automation, and for the **Comfy Developer Platform**, `app/run_helm.py` runs the same graph through the **Comfy SDK** (see [Run via the Comfy SDK](#run-via-the-comfy-sdk)).
 
@@ -110,7 +112,7 @@ An axis comes from two contrastive passes at the same block:
 
 1. `HelmCollect`, tag `pos`, run with your first prompt.
 2. Same node, tag `neg`, run with a contrasting prompt.
-3. `HelmVector` (`pos`, `neg` → axis) → `ComfyUI/user/steer/axis.pt`.
+3. `HelmVector` (`pos`, `neg` → axis) → `ComfyUI/user/steer/axis.safetensors`.
 4. `HelmApply` with `axis=axis`, block 20, strength 0.1; sweep `strength` (see `calibration.json`).
 
 ## Calibration
@@ -124,9 +126,21 @@ An axis comes from two contrastive passes at the same block:
 
 Outside the band the frame degrades.
 
+## The axis file, and onboarding a new model
+
+An axis is **one `.safetensors` file**: the tensor plus its own metadata (`dim`, `block`, `model`, `module`, `norm`, `safe_max`, `created`) in the header. There is no pickle anywhere — a `.pt` written by 0.2.0 is still *read* (with `weights_only=True`), but nothing writes one. Because the block travels *inside* the file, `HelmApply` accepts `block = -1` and adopts it, and the JSON sidecar beside the axis is a convenience, not a requirement — the axis is complete without it.
+
+To onboard a model nobody has measured yet:
+
+1. `HelmProbe`, tag `probe_pos`, run once with your first prompt.
+2. The same node, tag `probe_neg`, run with the contrasting prompt.
+3. `HelmProbeReport` (`probe_pos`, `probe_neg`) — prints the per-block separation ranking, writes `ComfyUI/user/steer/probe_report.json`, and returns a **suggested block and strength**.
+
+The separation profile is a measurement. The two suggestions are **heuristics** — the peak inside the middle 50% of blocks (early blocks destroy the frame), and a strength of `0.3 × |mu| / |dmu|`. They are a starting point for the 1–2 render confirmation, not a calibration, and the report is written with `"tested": false`.
+
 ## Notes / gotchas
 
-- **Axis storage.** Axis writes go to `ComfyUI/user/steer/` (with the `.json` sidecar beside them). Reads search, in order, `ComfyUI/user/steer/` → `ComfyUI/models/steer/` → the pack's own `example_axes/`, so the bundled `mood.pt`/`density.pt` resolve on a fresh clone. A missing axis raises a `FileNotFoundError` listing every directory searched.
+- **Axis storage.** Axis writes go to `ComfyUI/user/steer/` as `.safetensors` (with a `.json` sidecar beside them). Reads search, in order, `ComfyUI/user/steer/` → `ComfyUI/models/steer/` → the pack's own `example_axes/`, preferring `.safetensors` over a legacy `.pt` inside the same directory, so a bundled axis never shadows your own file. A missing axis raises a `FileNotFoundError` listing every directory searched. The header carries the metadata, so a `.safetensors` copied in on its own is enough.
 - **Aimdo.** H3's per-block prefetch raises `aimdo memory compile error` when a block's output is modified. The nodes set `comfy.memory_management.aimdo_enabled = False` for the wrapped call and restore it after.
 - **Wrapper contract.** ComfyUI calls `model_function_wrapper(apply_model, {"input","timestep","c","cond_or_uncond"})`; the forward hook is installed only for that call and removed after.
 - **H3 does not sample with `comfy.sample.sample`** — it samples inside `MiniMaxH3Director`; the nodes hook the MODEL the Director receives.

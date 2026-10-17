@@ -3,7 +3,7 @@ name = "comfyui-helm"
 description = "Training-free activation steering for ComfyUI: read a transformer block's direction between two prompts and inject it with a single strength scalar. Open weights only."
 version = "0.3.0"
 license = { file = "LICENSE" }
-dependencies = []
+dependencies = ["safetensors"]
 requires-python = ">=3.10"
 
 [project.optional-dependencies]

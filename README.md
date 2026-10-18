@@ -45,6 +45,19 @@ That makes the interesting questions open rather than answered:
 - **Can directions be found, not written?** Today you supply two contrast examples. The richer version reads directions out of a dataset.
 - **Do they compose?** Several independent axes = a small control surface for a model's own qualities, rather than a single look.
 
+- **Which directions are usable knobs — and can it be predicted without rendering?** Twelve candidate
+  axes were captured on Z-Image and measured: two held, ten washed out. In that small sample, how far an
+  axis sits *along* the model's average-appearance direction separated the two groups cleanly (the
+  survivors at |cos| 0.97/0.98, the washed-out ones at 0.61 on average). n=2 is a lead, not a result —
+  but a screen that costs no renders would be the most useful thing this project could hand anyone.
+
+- **What is the wash, mechanically?** Two statements live here and they are about different things.
+  *Repair:* removing the intensity and DC components from a washing axis did not change it — the wash is
+  a magnitude/manifold effect, not a removable direction. *Prediction:* how far an axis points along the
+  DC direction appears to separate the axes that survive from the ones that do not. A repair and a
+  predictor can both be true, and the difference between "take this component out" and "this axis is
+  aligned with it" is exactly the kind of thing this project measures rather than asserts.
+
 The axes here (density, mood) are low-level and measured. The harder claims are not yet made.
 
 ## Architecture

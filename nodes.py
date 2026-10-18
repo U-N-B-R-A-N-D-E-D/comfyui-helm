@@ -178,11 +178,9 @@ def _read_meta(name):
             return meta
     except Exception:
         pass
-    try:
-        with open(_resolve_meta(name), "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
+    # No name match anywhere: a same-named sidecar in another directory must never describe this
+    # axis (audit 4.1.1). A legacy .pt with no sidecar beside it simply has no metadata.
+    return None
 
 
 @lru_cache(maxsize=1)
@@ -225,15 +223,18 @@ def _stack_mean(m, o, flags=None, cond_only=False):
     # silently average the TEXT stream on architectures that return (txt, img).
     slot = _tuple_slot(m, o)
     x = (o[slot] if slot is not None else o).detach().float()
-    if cond_only and flags is not None:
-        try:
-            f = torch.as_tensor(flags).reshape(-1)
-            if f.numel() == x.shape[0] and f.numel() > 0:
-                sel = x[f.to(x.device) == 0]
-                if sel.shape[0] > 0:
-                    x = sel
-        except Exception:
-            pass
+    if cond_only:
+        if flags is None:
+            raise RuntimeError("cond_only=True but this model reported no cond_or_uncond flags; "
+                               "set cond_only=False (nothing was masked, and saying so beats guessing).")
+        f = torch.as_tensor(flags).reshape(-1)
+        if f.numel() != x.shape[0]:
+            raise RuntimeError(f"cond_only=True but {f.numel()} flags do not match the batch "
+                               f"({x.shape[0]}); refusing to average cond and uncond together.")
+        sel = x[f.to(x.device) == 0]
+        if sel.shape[0] == 0:
+            raise RuntimeError("cond_only=True but no unconditional item is present in this batch.")
+        x = sel
     while x.dim() > 1:
         x = x.mean(dim=0)
     return x  # -> [dim]
@@ -258,14 +259,23 @@ _BLOCK_ATTRS = ["blocks", "layers", "transformer_blocks", "joint_blocks", "doubl
 
 def _find_blocks(model, which=None):
     dm = model.model.diffusion_model
-    names = [which] if which else list(_BLOCK_ATTRS)
-    for n in names:
-        mod = getattr(dm, n, None)
+    if which:
+        mod = getattr(dm, which, None)
         if mod is not None and len(mod) > 4:
-            return mod, n
+            return mod, which
+        raise RuntimeError(f"no '{which}' block list on {dm.__class__.__name__}")
+    hits = [(a, getattr(dm, a, None)) for a in _BLOCK_ATTRS]
+    hits = [(a, m) for a, m in hits if m is not None and len(m) > 4]
+    if len(hits) > 1:
+        raise RuntimeError(
+            f"ambiguous block lists on {dm.__class__.__name__}: "
+            + ", ".join(f"{a}[{len(m)}]" for a, m in hits)
+            + ". Set the module explicitly in calibration.json rather than letting Helm guess.")
+    if hits:
+        return hits[0]
     present = [a for a in _BLOCK_ATTRS if getattr(dm, a, None) is not None]
     raise RuntimeError(
-        f"no transformer block list on {dm.__class__.__name__} (looked for {names}; "
+        f"no transformer block list on {dm.__class__.__name__} (looked for {_BLOCK_ATTRS}; "
         f"module has {present or 'none of the known ones'}). Pass the attribute via calibration.json.")
 
 
@@ -521,6 +531,12 @@ class HelmVector:
         p, n = _resolve_axis(pos_tag), _resolve_axis(neg_tag)
         v = _load_axis(p) - _load_axis(n)
         meta = _read_meta(pos_tag) or {}
+        nmeta = _read_meta(neg_tag) or {}
+        for k in ("block", "model"):
+            if meta.get(k) is not None and nmeta.get(k) is not None and meta[k] != nmeta[k]:
+                raise ValueError(
+                    f"pos '{pos_tag}' has {k}={meta[k]!r} but neg '{neg_tag}' has {nmeta[k]!r}; "
+                    f"an axis between different {k}s is meaningless.")
         _save_axis(axis, v, {"kind": "axis", "dim": int(v.shape[0]), "block": meta.get("block"),
                              "model": meta.get("model"), "module": meta.get("module"),
                              "norm": round(float(v.norm()), 3),

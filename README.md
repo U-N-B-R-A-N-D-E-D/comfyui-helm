@@ -145,7 +145,7 @@ Outside the band the frame degrades.
 
 `HelmApply` sits between the model and the sampler with one box per axis — `axis`, `block`, `strength`, a normalized `dial`, and the sampling window. Chain a second one for a second axis.
 
-## Supported architectures
+## Architecture & stream map
 
 `HelmApply` injects into a block's output. That is a plain tensor on most DiTs, but some architectures
 return a **tuple**, and there the element order is not standard:

@@ -132,6 +132,26 @@ Outside the band the frame degrades.
 
 `HelmApply` sits between the model and the sampler with one box per axis — `axis`, `block`, `strength`, a normalized `dial`, and the sampling window. Chain a second one for a second axis.
 
+## Supported architectures
+
+`HelmApply` injects into a block's output. That is a plain tensor on most DiTs, but some architectures
+return a **tuple**, and there the element order is not standard:
+
+| model | block list | a block returns | visual stream |
+|-------|-----------|-----------------|---------------|
+| MiniMax H3 | `blocks` | tensor (text is packed into the same sequence) | — |
+| Z-Image / Lumina2 | `layers` | tensor (caption and image concatenated) | — |
+| LTX | `transformer_blocks` | tensor (text arrives by cross-attention) | — |
+| Flux | `double_blocks` | `(img, txt)` | element 0 |
+| SD3 | `joint_blocks` | `(txt, img)` | element 1 |
+| Qwen-Image | `transformer_blocks` | `(txt, img)` | element 1 |
+
+Assuming element 0 would silently steer the **text conditioning** on the last two. So Helm refuses an
+undeclared tuple block — with an error naming the class — rather than guessing, and
+`_TUPLE_VISUAL_BY_CLASS` in `nodes.py` is where an architecture gets declared. Structural facts here
+come from the ComfyUI source we hook (file:line per row, tabulated in the HAL repo's
+`science/ADAPTERS.md`); the numbers stay ours and carry a date.
+
 ## The axis file, and onboarding a new model
 
 An axis is **one `.safetensors` file**: the tensor plus its own metadata (`dim`, `block`, `model`, `module`, `norm`, `safe_max`, `created`) in the header. There is no pickle anywhere — a `.pt` written by 0.2.0 is still *read* (with `weights_only=True`), but nothing writes one. Because the block travels *inside* the file, `HelmApply` accepts `block = -1` and adopts it, and the JSON sidecar beside the axis is a convenience, not a requirement — the axis is complete without it.

@@ -280,9 +280,32 @@ def _make_collect_hook(acc, tag, block, module, model_name, cond_only, write_mod
     return fn
 
 
+# A block that returns a tuple must say which element is the visual stream. Assuming `out[0]` silently
+# steers the TEXT conditioning on any architecture that returns `(txt, img)` -- SD3 (joint_blocks) and
+# Qwen-Image do exactly that. Verified against the runtime we hook: comfy/ldm/flux/layers.py:267 returns
+# `(img, txt)`, comfy/ldm/qwen_image/model.py returns `(txt, img)`. Per-architecture table:
+# `integrations/comfyui-steer-h3/science/ADAPTERS.md` in the HAL repo.
+_TUPLE_VISUAL_BY_CLASS = {"DoubleStreamBlock": 0}
+
+
+def _tuple_slot(module, out):
+    """Index of the visual stream in a tuple return, or None when the block returns a plain tensor."""
+    if not isinstance(out, tuple):
+        return None
+    name = type(module).__name__
+    if name in _TUPLE_VISUAL_BY_CLASS:
+        return _TUPLE_VISUAL_BY_CLASS[name]
+    raise RuntimeError(
+        f"block '{name}' returns a tuple and Helm does not know which element is the visual stream. "
+        f"Steering the wrong one would move the text conditioning instead of the image, so this is "
+        f"refused rather than guessed. Declare it in _TUPLE_VISUAL_BY_CLASS (the per-architecture table "
+        f"lives in science/ADAPTERS.md).")
+
+
 def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path):
     def fn(m, args, out, flags=None):
-        x = out[0] if isinstance(out, tuple) else out
+        slot = _tuple_slot(m, out)
+        x = out[slot] if slot is not None else out
         if x.shape[-1] != vec.shape[-1]:
             raise RuntimeError(
                 f"axis '{axis_name}' dim {vec.shape[-1]} != block output dim {x.shape[-1]}; "
@@ -291,7 +314,9 @@ def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path):
         if cond_only and flags is not None:
             d = _mask_by_flags(d, x, flags)
         y = x + d
-        return (y,) + out[1:] if isinstance(out, tuple) else y
+        if slot is None:
+            return y
+        return tuple(y if i == slot else o for i, o in enumerate(out))
     return fn
 
 

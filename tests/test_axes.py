@@ -121,10 +121,12 @@ def test_a_users_axis_is_not_described_by_the_packs_sidecar(helm):
     assert meta["module"] == "layers"
 
 
-def test_a_legacy_axis_with_no_sidecar_never_reads_another_directory(helm):
-    """Audit 4.1.1: the old name-match fallback is gone. A .pt with no sidecar beside it has no
-    metadata -- and must never inherit example_axes/mood.json's block."""
+def test_an_axis_with_no_metadata_never_inherits_another_directory(helm):
+    """Audit 4.1.1: the old name-match fallback is gone. A file with no sidecar beside it and no
+    header must have NO metadata -- never example_axes/mood.json's block."""
     import os
-    torch.save(torch.ones(6), os.path.join(helm.pack, "user", "steer", "mood.pt"))
+    from safetensors.torch import save_file
+    os.makedirs(helm.user, exist_ok=True)
+    save_file({"axis": torch.ones(6)}, os.path.join(helm.user, "mood.safetensors"))
     assert os.path.exists(os.path.join(helm.pack, "example_axes", "mood.json"))
     assert helm.nodes._read_meta("mood") is None

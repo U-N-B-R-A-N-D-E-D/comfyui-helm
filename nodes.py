@@ -169,18 +169,28 @@ def _read_meta(name):
     # axis first, then the header -- only then fall back to a name match anywhere.
     try:
         axis_file = _resolve_axis(name)
+    except Exception:
+        axis_file = None
+    if axis_file:
         sidecar = os.path.splitext(axis_file)[0] + ".json"
-        if os.path.exists(sidecar):
+        try:
             with open(sidecar, "r", encoding="utf-8") as f:
                 return json.load(f)
+        except Exception:
+            pass
         meta = _load_axis_meta(axis_file)
         if meta:
             return meta
+        # A legacy .pt with no sidecar beside it simply has no metadata -- it must never inherit a
+        # same-named sidecar from another directory (audit 4.1.1).
+        return None
+    # No axis file at all: a meta-only sidecar (written by _write_meta) is the only thing that can
+    # describe this name, and it is genuinely its own.
+    try:
+        with open(_resolve_meta(name), "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception:
-        pass
-    # No name match anywhere: a same-named sidecar in another directory must never describe this
-    # axis (audit 4.1.1). A legacy .pt with no sidecar beside it simply has no metadata.
-    return None
+        return None
 
 
 @lru_cache(maxsize=1)
@@ -259,23 +269,14 @@ _BLOCK_ATTRS = ["blocks", "layers", "transformer_blocks", "joint_blocks", "doubl
 
 def _find_blocks(model, which=None):
     dm = model.model.diffusion_model
-    if which:
-        mod = getattr(dm, which, None)
+    names = [which] if which else list(_BLOCK_ATTRS)
+    for n in names:
+        mod = getattr(dm, n, None)
         if mod is not None and len(mod) > 4:
-            return mod, which
-        raise RuntimeError(f"no '{which}' block list on {dm.__class__.__name__}")
-    hits = [(a, getattr(dm, a, None)) for a in _BLOCK_ATTRS]
-    hits = [(a, m) for a, m in hits if m is not None and len(m) > 4]
-    if len(hits) > 1:
-        raise RuntimeError(
-            f"ambiguous block lists on {dm.__class__.__name__}: "
-            + ", ".join(f"{a}[{len(m)}]" for a, m in hits)
-            + ". Set the module explicitly in calibration.json rather than letting Helm guess.")
-    if hits:
-        return hits[0]
+            return mod, n
     present = [a for a in _BLOCK_ATTRS if getattr(dm, a, None) is not None]
     raise RuntimeError(
-        f"no transformer block list on {dm.__class__.__name__} (looked for {_BLOCK_ATTRS}; "
+        f"no transformer block list on {dm.__class__.__name__} (looked for {names}; "
         f"module has {present or 'none of the known ones'}). Pass the attribute via calibration.json.")
 
 

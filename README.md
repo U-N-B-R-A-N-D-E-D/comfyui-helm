@@ -45,18 +45,18 @@ That makes the interesting questions open rather than answered:
 - **Can directions be found, not written?** Today you supply two contrast examples. The richer version reads directions out of a dataset.
 - **Do they compose?** Several independent axes = a small control surface for a model's own qualities, rather than a single look.
 
-- **Which directions are usable knobs — and can it be predicted without rendering?** Twelve candidate
-  axes were captured on Z-Image and measured: two held, ten washed out. In that small sample, how far an
-  axis sits *along* the model's average-appearance direction separated the two groups cleanly (the
-  survivors at |cos| 0.97/0.98, the washed-out ones at 0.61 on average). n=2 is a lead, not a result —
-  but a screen that costs no renders would be the most useful thing this project could hand anyone.
+- **Which directions are usable knobs?** Seventy-eight were captured on Z-Image and measured: roughly a
+  third hold, two-thirds wash out. We then tried to predict which, from how far an axis sits *along* the
+  model's average-appearance direction. At 23 axes the separation looked perfect; with 78 measured it
+  collapsed — the lowest survivor sits at 0.31 while a washed-out axis sits at 0.94. **The screen is
+  refuted**, and the question stays open, with the numbers kept rather than the story.
 
 - **What is the wash, mechanically?** Two statements live here and they are about different things.
   *Repair:* removing the intensity and DC components from a washing axis did not change it — the wash is
-  a magnitude/manifold effect, not a removable direction. *Prediction:* how far an axis points along the
-  DC direction appears to separate the axes that survive from the ones that do not. A repair and a
-  predictor can both be true, and the difference between "take this component out" and "this axis is
-  aligned with it" is exactly the kind of thing this project measures rather than asserts.
+  a magnitude/manifold effect, not a removable direction. *Prediction:* we tested whether alignment with
+  that direction tells you in advance which axes survive. It looked convincing on a small sample and did
+  not survive a larger one. Both statements are in the open, and so is the fact that we killed our own
+  hypothesis rather than shipping it.
 
 The axes here (density, mood) are low-level and measured. The harder claims are not yet made.
 

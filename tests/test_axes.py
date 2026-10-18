@@ -126,7 +126,8 @@ def test_an_axis_with_no_metadata_never_inherits_another_directory(helm):
     header must have NO metadata -- never example_axes/mood.json's block."""
     import os
     from safetensors.torch import save_file
-    os.makedirs(helm.user, exist_ok=True)
-    save_file({"axis": torch.ones(6)}, os.path.join(helm.user, "mood.safetensors"))
+    d = helm.nodes._READ_DIRS[0]
+    os.makedirs(d, exist_ok=True)
+    save_file({"axis": torch.ones(6)}, os.path.join(d, "mood.safetensors"))
     assert os.path.exists(os.path.join(helm.pack, "example_axes", "mood.json"))
     assert helm.nodes._read_meta("mood") is None

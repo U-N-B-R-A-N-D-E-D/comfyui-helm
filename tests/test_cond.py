@@ -25,14 +25,14 @@ def test_mask_by_flags_length_mismatch_is_permissive():
 def test_stack_mean_cond_only_selects_flag_zero():
     nodes = conftest.import_nodes()
     out = torch.tensor([[[1.0, 1.0], [1.0, 1.0]], [[9.0, 9.0], [9.0, 9.0]]])
-    m = nodes._stack_mean(out, flags=[0, 1], cond_only=True)
+    m = nodes._stack_mean(torch.nn.Identity(), out, flags=[0, 1], cond_only=True)
     assert torch.allclose(m, torch.ones(2))
 
 
 def test_stack_mean_all_items_when_not_cond_only():
     nodes = conftest.import_nodes()
     out = torch.tensor([[[1.0, 1.0], [1.0, 1.0]], [[9.0, 9.0], [9.0, 9.0]]])
-    m = nodes._stack_mean(out, flags=[0, 1], cond_only=False)
+    m = nodes._stack_mean(torch.nn.Identity(), out, flags=[0, 1], cond_only=False)
     assert torch.allclose(m, torch.full((2,), 5.0))
 
 

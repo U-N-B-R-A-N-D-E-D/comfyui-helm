@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+
+# GitHub carries images only; the demo/before-after videos live outside the repo.
+*.mp4
+*.mov
+*.webm

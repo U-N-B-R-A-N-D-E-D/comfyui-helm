@@ -133,3 +133,15 @@ Not defects; defaults preserve today's behavior. Added with the E1 hook rework.
 - **Verification.** `tests/test_axes.py`: safetensors round-trip is bit-exact, header-only metadata
   resolves after the sidecar is deleted, a legacy `.pt` is still read, and `.safetensors` wins over
   `.pt` inside the same directory.
+
+## E8 — `HelmProbe` allocated its accumulator on the wrong device
+
+- **Symptom.** On the pod (RTX PRO 6000), the first `HelmProbe` run died on the first block:
+  `RuntimeError: Expected all tensors to be on the same device, but found at least two devices, cuda:0 and cpu!`
+- **Root cause.** `_make_probe_hook` built the per-block accumulator with `torch.zeros(n_blocks, dim)` —
+  the *default* device — and then added a block activation that lives on `cuda:0`. The node was written
+  and unit-tested on CPU, where the mismatch cannot happen (a `meta` tensor does not raise either), so a
+  green suite could not see it. Found only by running on real hardware.
+- **Fix.** Allocate the buffer with the activation's own `dtype` and `device`.
+- **Verification.** `tests/test_probe.py::test_probe_rows_buffer_follows_the_activation_device` pins the
+  root cause: it spies on `torch.zeros` and fails if the allocation is not given a device.

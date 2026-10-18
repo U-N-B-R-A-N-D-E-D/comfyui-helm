@@ -21,18 +21,17 @@ def _planted(n_blocks=20, dim=8, seed=0):
 
 def test_probe_profile_finds_the_planted_block(helm):
     prof = helm.nodes._probe_profile(*_planted())
-    assert prof["suggested"]["block"] == BAND
+    assert prof["peak"]["block"] == BAND
     assert prof["ranking"][0]["block"] == BAND
     assert prof["dim"] == 8 and prof["n_blocks"] == 20
-    assert prof["suggested"]["strength"] > 0
 
 
 def test_probe_profile_separation_is_scale_free(helm):
     pos, neg = _planted()
     a = helm.nodes._probe_profile(pos, neg)
     b = helm.nodes._probe_profile(pos * 100.0, neg * 100.0)
-    assert a["suggested"]["separation"] == b["suggested"]["separation"]
-    assert a["suggested"]["block"] == b["suggested"]["block"]
+    assert a["peak"]["separation"] == b["peak"]["separation"]
+    assert a["peak"]["block"] == b["peak"]["block"]
 
 
 def test_probe_report_round_trip(helm):
@@ -41,13 +40,12 @@ def test_probe_report_round_trip(helm):
                                                "model": "FakeDiT", "module": "blocks"})
     helm.nodes._save_tensor("probe_neg", neg, {"kind": "probe", "n_blocks": 20, "dim": 8,
                                                "model": "FakeDiT", "module": "blocks"})
-    block, strength = helm.nodes.HelmProbeReport().run("probe_pos", "probe_neg", 3)
-    assert block == BAND and strength > 0
+    block = helm.nodes.HelmProbeReport().run("probe_pos", "probe_neg", 3)[0]
+    assert block == BAND
     with open(f"{helm.steer}/probe_report.json", encoding="utf-8") as f:
         import json
         report = json.load(f)
-    assert report["suggested"]["block"] == BAND and report["model"] == "FakeDiT"
-    assert report["heuristic"]["safe_fraction"] == helm.nodes.SAFE_FRACTION
+    assert report["peak"]["block"] == BAND and report["model"] == "FakeDiT"
 
 
 def test_probe_report_rejects_mismatched_shapes(helm):
@@ -106,3 +104,35 @@ def test_probe_hook_writes_once_per_run_and_averages_over_steps(helm, monkeypatc
     assert tuple(rows.shape) == (6, 8)
     for i in range(6):
         assert torch.allclose(rows[i], torch.full((8,), float(i + 1))), f"block {i} mean is wrong"
+
+
+def test_probe_rows_buffer_follows_the_activation_device(helm, monkeypatch):
+    """Regression: the rows buffer was allocated on the *default* device, so a CUDA activation hit
+    "Expected all tensors to be on the same device" on the pod on the very first block. CPU-only
+    tests cannot reproduce a device mismatch, so pin the root cause instead: the buffer must be
+    allocated with the activation's own device."""
+    nodes = helm.nodes
+    dit = torch.nn.Module()
+    dit.blocks = torch.nn.ModuleList([_Const(i + 1) for i in range(6)])
+    mp = FakePatcher(types.SimpleNamespace(diffusion_model=dit))
+
+    seen = {}
+    real_zeros = torch.zeros
+
+    def spy_zeros(*args, **kwargs):
+        seen["device"] = kwargs.get("device")
+        return real_zeros(*args, **kwargs)
+
+    monkeypatch.setattr(nodes.torch, "zeros", spy_zeros)
+
+    acc = {"rows": None, "steps": 0, "n_blocks": 6, "last": False}
+    acc["reset"] = lambda: acc.update(rows=None, steps=0)
+    fn = nodes._make_probe_hook(acc, "probe_pos", "blocks", "Fake", False, "last")
+    nodes._add_hook(mp, {"fn": fn, "all_blocks": True, "start": 0.0, "end": 1.0})
+
+    x = torch.zeros(1, 8)
+    nodes._wrapper(mp)(_apply_model(dit), make_c_in(x, sig=[1.0, 0.5, 0.0]))
+
+    assert acc["rows"] is not None
+    assert seen.get("device") is not None, "probe allocated its rows buffer without a device"
+    assert seen["device"] == x.device

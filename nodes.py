@@ -12,9 +12,10 @@ Nodes
   HelmApply    MODEL -> MODEL   inject x + strength*axis at block K (chain several for multiple axes)
 
 Model onboarding
-  HelmProbe        MODEL -> MODEL      read EVERY block for a tag (run twice: pos, then neg)
-  HelmProbeReport  tags  -> INT/FLOAT  per-block separation ranking; suggests a block + strength
-                                       (both heuristic) and writes user/steer/probe_report.json
+  HelmProbe        MODEL -> MODEL  read EVERY block for a tag (run twice: pos, then neg)
+  HelmProbeReport  tags  -> INT    per-block separation ranking -> user/steer/probe_report.json, plus
+                                   the highest-separation block in the middle 50%. That peak is a
+                                   measurement, not a validated picker (docs/EXPERIMENTS.md D)
 
 Wire MODEL source -> HelmApply -> sampler. Works on any DiT exposing a `blocks`/`layers`/`transformer_blocks`/
 `double_blocks`/`single_blocks` ModuleList (H3: blocks, dim 5376, block ~20; Z-Image/Lumina: layers,
@@ -164,13 +165,22 @@ def _write_meta(name, meta):
 
 
 def _read_meta(name):
+    # D2: a sidecar from another directory must never describe this axis. Look beside the resolved
+    # axis first, then the header -- only then fall back to a name match anywhere.
     try:
-        with open(_resolve_meta(name), "r", encoding="utf-8") as f:
-            return json.load(f)
+        axis_file = _resolve_axis(name)
+        sidecar = os.path.splitext(axis_file)[0] + ".json"
+        if os.path.exists(sidecar):
+            with open(sidecar, "r", encoding="utf-8") as f:
+                return json.load(f)
+        meta = _load_axis_meta(axis_file)
+        if meta:
+            return meta
     except Exception:
         pass
     try:
-        return _load_axis_meta(_resolve_axis(name))
+        with open(_resolve_meta(name), "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception:
         return None
 
@@ -210,12 +220,11 @@ def _model_name(mp):
 
 
 # --- hook machinery ------------------------------------------------------------------------
-def _first(o):
-    return o[0] if isinstance(o, tuple) else o
-
-
-def _stack_mean(o, flags=None, cond_only=False):
-    x = _first(o).detach().float()
+def _stack_mean(m, o, flags=None, cond_only=False):
+    # D1: reading must go through the same slot rule as injection. Reading out[0] of a tuple would
+    # silently average the TEXT stream on architectures that return (txt, img).
+    slot = _tuple_slot(m, o)
+    x = (o[slot] if slot is not None else o).detach().float()
     if cond_only and flags is not None:
         try:
             f = torch.as_tensor(flags).reshape(-1)
@@ -243,7 +252,8 @@ def _mask_by_flags(d, x, flags):
         return d
 
 
-_BLOCK_ATTRS = ["blocks", "layers", "transformer_blocks", "double_blocks", "single_blocks"]
+_BLOCK_ATTRS = ["blocks", "layers", "transformer_blocks", "joint_blocks", "double_blocks",
+                "single_blocks"]
 
 
 def _find_blocks(model, which=None):
@@ -269,7 +279,7 @@ def _flush(tag, acc, block, module, model_name):
 
 def _make_collect_hook(acc, tag, block, module, model_name, cond_only, write_mode):
     def fn(m, args, out, flags=None):
-        v = _stack_mean(out, flags=flags, cond_only=cond_only)
+        v = _stack_mean(m, out, flags=flags, cond_only=cond_only)
         acc["sum"] = v if acc["sum"] is None else acc["sum"] + v
         acc["n"] += 1
         if write_mode == "each" or (write_mode == "last" and acc.get("last")):
@@ -279,9 +289,32 @@ def _make_collect_hook(acc, tag, block, module, model_name, cond_only, write_mod
     return fn
 
 
+# A block that returns a tuple must say which element is the visual stream. Assuming `out[0]` silently
+# steers the TEXT conditioning on any architecture that returns `(txt, img)` -- SD3 (joint_blocks) and
+# Qwen-Image do exactly that. Verified against the runtime we hook: comfy/ldm/flux/layers.py:267 returns
+# `(img, txt)`, comfy/ldm/qwen_image/model.py returns `(txt, img)`. Per-architecture table:
+# README section 'Supported architectures', which carries the same table.
+_TUPLE_VISUAL_BY_CLASS = {"DoubleStreamBlock": 0}
+
+
+def _tuple_slot(module, out):
+    """Index of the visual stream in a tuple return, or None when the block returns a plain tensor."""
+    if not isinstance(out, tuple):
+        return None
+    name = type(module).__name__
+    if name in _TUPLE_VISUAL_BY_CLASS:
+        return _TUPLE_VISUAL_BY_CLASS[name]
+    raise RuntimeError(
+        f"block '{name}' returns a tuple and Helm does not know which element is the visual stream. "
+        f"Steering the wrong one would move the text conditioning instead of the image, so this is "
+        f"refused rather than guessed. Declare it in _TUPLE_VISUAL_BY_CLASS (the per-architecture table "
+        f"lives in the README's Supported architectures section).")
+
+
 def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path):
     def fn(m, args, out, flags=None):
-        x = out[0] if isinstance(out, tuple) else out
+        slot = _tuple_slot(m, out)
+        x = out[slot] if slot is not None else out
         if x.shape[-1] != vec.shape[-1]:
             raise RuntimeError(
                 f"axis '{axis_name}' dim {vec.shape[-1]} != block output dim {x.shape[-1]}; "
@@ -290,7 +323,9 @@ def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path):
         if cond_only and flags is not None:
             d = _mask_by_flags(d, x, flags)
         y = x + d
-        return (y,) + out[1:] if isinstance(out, tuple) else y
+        if slot is None:
+            return y
+        return tuple(y if i == slot else o for i, o in enumerate(out))
     return fn
 
 
@@ -379,10 +414,11 @@ def _install_wrapper(mp):
 
 
 # --- probe: per-block sensitivity profile (onboarding a new model) --------------------------
-# On H3 the verified safe_max (0.3) times the shipped axis norm (~3170) is a perturbation around
-# 30% of the block's activation norm. SAFE_FRACTION turns the probe's own measured norms into a
-# starting-point strength. It is a HEURISTIC from one measured model -- not a guarantee.
-SAFE_FRACTION = 0.3
+# The probe MEASURES how far two contrast prompts separate, block by block. That profile is data.
+# What it does NOT do is pick the block for you: measured on Z-Image, the separation peak is block 7
+# while the band verified by rendering is 9-21, and the global peak is block 0 (which destroys the
+# frame). We also tried a strength estimate from the norms and it was ~10x off there, so there is no
+# strength suggestion. See docs/EXPERIMENTS.md section D.
 
 
 def _probe_profile(pos, neg):
@@ -401,9 +437,7 @@ def _probe_profile(pos, neg):
     return {
         "n_blocks": n,
         "dim": int(pos.shape[1]),
-        "suggested": {"block": k,
-                      "strength": round(float(SAFE_FRACTION * mu[k] / (dn[k] + 1e-8)), 4),
-                      "separation": round(float(sep[k]), 4)},
+        "peak": {"block": k, "separation": round(float(sep[k]), 4)},
         "ranking": [{"block": int(i), "separation": round(float(sep[i]), 4),
                      "cosine": round(float(cos[i]), 4), "mu_norm": round(float(mu[i]), 2),
                      "delta_norm": round(float(dn[i]), 2)}
@@ -422,9 +456,9 @@ def _flush_probe(tag, acc, module, model_name):
 
 def _make_probe_hook(acc, tag, module, model_name, cond_only, write_mode):
     def fn(m, args, out, flags=None, idx=0):
-        v = _stack_mean(out, flags=flags, cond_only=cond_only)
+        v = _stack_mean(m, out, flags=flags, cond_only=cond_only)
         if acc["rows"] is None:
-            acc["rows"] = torch.zeros(acc["n_blocks"], v.shape[0], dtype=torch.float32)
+            acc["rows"] = torch.zeros(acc["n_blocks"], v.shape[0], dtype=v.dtype, device=v.device)
         if idx < acc["rows"].shape[0] and v.shape[0] == acc["rows"].shape[1]:
             acc["rows"][idx] += v
         if idx == 0:
@@ -600,8 +634,8 @@ class HelmProbeReport:
             "top": ("INT", {"default": 5, "min": 1, "max": 64,
                             "tooltip": "how many ranked blocks to print"}),
         }}
-    RETURN_TYPES = ("INT", "FLOAT")
-    RETURN_NAMES = ("block", "strength")
+    RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("peak_block",)
     FUNCTION = "run"
     CATEGORY = "Helm"
 
@@ -613,27 +647,25 @@ class HelmProbeReport:
                 f"probe files must both be [n_blocks, dim] tensors from HelmProbe with matching shapes; "
                 f"got {tuple(P.shape)} for '{pos_tag}' and {tuple(N.shape)} for '{neg_tag}'")
         prof = _probe_profile(P, N)
-        sug = prof["suggested"]
+        peak = prof["peak"]
         meta = _read_meta(pos_tag) or {}
         report = {"kind": "probe_report", "created": time.time(), "pos_tag": pos_tag, "neg_tag": neg_tag,
-                  "model": meta.get("model"), "module": meta.get("module"),
-                  "heuristic": {"safe_fraction": SAFE_FRACTION,
-                                "band": "middle 50% of blocks (early blocks destroy the frame)"},
-                  **prof}
+                  "model": meta.get("model"), "module": meta.get("module"), **prof}
         path = os.path.join(_axes(), "probe_report.json")
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2)
         except Exception as e:
             print(f"[helm] could not write {path}: {e}")
-        print("[helm] probe report — separation (high = stronger contrast at that block):")
+        print("[helm] probe report — separation (high = the two prompts differ more at that block):")
         for row in prof["ranking"][:max(1, int(top))]:
             print(f"[helm]   block {row['block']:>3}: sep={row['separation']:.4f} cos={row['cosine']:+.4f} "
                   f"|dmu|={row['delta_norm']:.1f} |mu|={row['mu_norm']:.1f}")
-        print(f"[helm] suggested block {sug['block']} of {prof['n_blocks']} and strength ~{sug['strength']} "
-              f"— both HEURISTIC (peak in the middle 50%; {SAFE_FRACTION} x |mu|/|dmu|). "
-              f"Confirm with 1-2 renders. Report -> {path}")
-        return (int(sug["block"]), float(sug["strength"]))
+        print(f"[helm] highest separation in the middle 50%: block {peak['block']} of {prof['n_blocks']} "
+              f"(sep={peak['separation']}). This is a MEASUREMENT, not a validated block picker — on "
+              f"Z-Image the peak sat at 7 while the band verified by rendering is 9-21. Sweep strength by "
+              f"hand: the scale is model-specific. Report -> {path}")
+        return (int(peak["block"]),)
 
 
 NODE_CLASS_MAPPINGS = {"HelmCollect": HelmCollect, "HelmVector": HelmVector, "HelmApply": HelmApply,
@@ -643,5 +675,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "HelmVector": "Helm Axis (diff-in-means)",
     "HelmApply": "Helm Apply (strength x axis)",
     "HelmProbe": "Helm Probe (read all blocks)",
-    "HelmProbeReport": "Helm Probe Report (pick block + strength)",
+    "HelmProbeReport": "Helm Probe Report (block separation profile)",
 }

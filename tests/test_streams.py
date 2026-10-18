@@ -44,3 +44,26 @@ def test_a_plain_tensor_block_is_untouched(helm):
     out = fn(torch.nn.Identity(), (), torch.zeros(1, 8))
     assert not isinstance(out, tuple)
     assert torch.allclose(out, torch.full((1, 8), 0.5))
+
+
+class _TupleBlock(torch.nn.Module):
+    """An undeclared tuple-returning block, to prove the READING side is guarded too."""
+
+    def forward(self, x):
+        return x, x
+
+
+def test_collect_refuses_an_undeclared_tuple_block(helm):
+    """D1: reading used to take out[0] silently. It must refuse exactly like injection does."""
+    acc = {"sum": None, "n": 0, "last": False}
+    fn = helm.nodes._make_collect_hook(acc, "t", 0, "blocks", "Fake", False, "last")
+    with pytest.raises(RuntimeError) as ei:
+        fn(_TupleBlock(), (), (torch.zeros(1, 8), torch.zeros(1, 8)))
+    assert "visual stream" in str(ei.value)
+
+
+def test_a_declared_tuple_block_is_read_from_the_visual_stream(helm):
+    acc = {"sum": None, "n": 0, "last": False}
+    fn = helm.nodes._make_collect_hook(acc, "t", 0, "blocks", "Fake", False, "last")
+    fn(DoubleStreamBlock(), (), (torch.full((1, 8), 2.0), torch.full((1, 8), 9.0)))
+    assert torch.allclose(acc["sum"], torch.full((8,), 2.0)), "read the text stream, not the image"

@@ -156,14 +156,15 @@ return a **tuple**, and there the element order is not standard:
 | Z-Image / Lumina2 | `layers` | tensor (caption and image concatenated) | — |
 | LTX | `transformer_blocks` | tensor (text arrives by cross-attention) | — |
 | Flux | `double_blocks` | `(img, txt)` | element 0 |
-| SD3 | `joint_blocks` | `(txt, img)` | element 1 |
-| Qwen-Image | `transformer_blocks` | `(txt, img)` | element 1 |
+| SD3 | `joint_blocks` | `(txt, img)` | element 1 — **not declared yet** |
+| Qwen-Image | `transformer_blocks` | `(txt, img)` | element 1 — **not declared yet** |
 
-Assuming element 0 would silently steer the **text conditioning** on the last two. So Helm refuses an
+Assuming element 0 would silently steer the **text conditioning** on the last two, so they are
+documented but deliberately **not declared**: Helm refuses them rather than guess. So Helm refuses an
 undeclared tuple block — with an error naming the class — rather than guessing, and
 `_TUPLE_VISUAL_BY_CLASS` in `nodes.py` is where an architecture gets declared. Structural facts here
-come from the ComfyUI source we hook (file:line per row, tabulated in the HAL repo's
-`science/ADAPTERS.md`); the numbers stay ours and carry a date.
+come from the ComfyUI source we hook (file:line per row, in the table above); the numbers stay ours and
+carry a date.
 
 ## The axis file, and onboarding a new model
 

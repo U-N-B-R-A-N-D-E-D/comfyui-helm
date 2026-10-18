@@ -107,3 +107,15 @@ def test_write_meta_does_not_assign_none_over_value(helm):
     helm.nodes._write_meta("mk_dev", {"created": 7.5, "block": 20})
     meta = helm.nodes._read_meta("mk_dev")
     assert meta["created"] == 7.5
+
+
+def test_a_users_axis_is_not_described_by_the_packs_sidecar(helm):
+    """D2: a `.safetensors` dropped in user/steer/ must be described by its OWN header, never by a
+    same-named sidecar that happens to live in another read directory."""
+    import os
+    helm.nodes._save_axis("mood", torch.ones(6), {"kind": "axis", "dim": 6, "block": 15,
+                                                  "model": "ZImage", "module": "layers"})
+    assert os.path.exists(os.path.join(helm.pack, "example_axes", "mood.json"))
+    meta = helm.nodes._read_meta("mood")
+    assert meta["block"] == 15, f"took metadata from another directory: {meta}"
+    assert meta["module"] == "layers"

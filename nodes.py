@@ -165,13 +165,22 @@ def _write_meta(name, meta):
 
 
 def _read_meta(name):
+    # D2: a sidecar from another directory must never describe this axis. Look beside the resolved
+    # axis first, then the header -- only then fall back to a name match anywhere.
     try:
-        with open(_resolve_meta(name), "r", encoding="utf-8") as f:
-            return json.load(f)
+        axis_file = _resolve_axis(name)
+        sidecar = os.path.splitext(axis_file)[0] + ".json"
+        if os.path.exists(sidecar):
+            with open(sidecar, "r", encoding="utf-8") as f:
+                return json.load(f)
+        meta = _load_axis_meta(axis_file)
+        if meta:
+            return meta
     except Exception:
         pass
     try:
-        return _load_axis_meta(_resolve_axis(name))
+        with open(_resolve_meta(name), "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception:
         return None
 
@@ -211,12 +220,11 @@ def _model_name(mp):
 
 
 # --- hook machinery ------------------------------------------------------------------------
-def _first(o):
-    return o[0] if isinstance(o, tuple) else o
-
-
-def _stack_mean(o, flags=None, cond_only=False):
-    x = _first(o).detach().float()
+def _stack_mean(m, o, flags=None, cond_only=False):
+    # D1: reading must go through the same slot rule as injection. Reading out[0] of a tuple would
+    # silently average the TEXT stream on architectures that return (txt, img).
+    slot = _tuple_slot(m, o)
+    x = (o[slot] if slot is not None else o).detach().float()
     if cond_only and flags is not None:
         try:
             f = torch.as_tensor(flags).reshape(-1)
@@ -244,7 +252,8 @@ def _mask_by_flags(d, x, flags):
         return d
 
 
-_BLOCK_ATTRS = ["blocks", "layers", "transformer_blocks", "double_blocks", "single_blocks"]
+_BLOCK_ATTRS = ["blocks", "layers", "transformer_blocks", "joint_blocks", "double_blocks",
+                "single_blocks"]
 
 
 def _find_blocks(model, which=None):
@@ -270,7 +279,7 @@ def _flush(tag, acc, block, module, model_name):
 
 def _make_collect_hook(acc, tag, block, module, model_name, cond_only, write_mode):
     def fn(m, args, out, flags=None):
-        v = _stack_mean(out, flags=flags, cond_only=cond_only)
+        v = _stack_mean(m, out, flags=flags, cond_only=cond_only)
         acc["sum"] = v if acc["sum"] is None else acc["sum"] + v
         acc["n"] += 1
         if write_mode == "each" or (write_mode == "last" and acc.get("last")):
@@ -284,7 +293,7 @@ def _make_collect_hook(acc, tag, block, module, model_name, cond_only, write_mod
 # steers the TEXT conditioning on any architecture that returns `(txt, img)` -- SD3 (joint_blocks) and
 # Qwen-Image do exactly that. Verified against the runtime we hook: comfy/ldm/flux/layers.py:267 returns
 # `(img, txt)`, comfy/ldm/qwen_image/model.py returns `(txt, img)`. Per-architecture table:
-# `integrations/comfyui-steer-h3/science/ADAPTERS.md` in the HAL repo.
+# README section 'Supported architectures', which carries the same table.
 _TUPLE_VISUAL_BY_CLASS = {"DoubleStreamBlock": 0}
 
 
@@ -299,7 +308,7 @@ def _tuple_slot(module, out):
         f"block '{name}' returns a tuple and Helm does not know which element is the visual stream. "
         f"Steering the wrong one would move the text conditioning instead of the image, so this is "
         f"refused rather than guessed. Declare it in _TUPLE_VISUAL_BY_CLASS (the per-architecture table "
-        f"lives in science/ADAPTERS.md).")
+        f"lives in the README's Supported architectures section).")
 
 
 def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path):
@@ -447,7 +456,7 @@ def _flush_probe(tag, acc, module, model_name):
 
 def _make_probe_hook(acc, tag, module, model_name, cond_only, write_mode):
     def fn(m, args, out, flags=None, idx=0):
-        v = _stack_mean(out, flags=flags, cond_only=cond_only)
+        v = _stack_mean(m, out, flags=flags, cond_only=cond_only)
         if acc["rows"] is None:
             acc["rows"] = torch.zeros(acc["n_blocks"], v.shape[0], dtype=v.dtype, device=v.device)
         if idx < acc["rows"].shape[0] and v.shape[0] == acc["rows"].shape[1]:
@@ -666,5 +675,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "HelmVector": "Helm Axis (diff-in-means)",
     "HelmApply": "Helm Apply (strength x axis)",
     "HelmProbe": "Helm Probe (read all blocks)",
-    "HelmProbeReport": "Helm Probe Report (pick block + strength)",
+    "HelmProbeReport": "Helm Probe Report (block separation profile)",
 }

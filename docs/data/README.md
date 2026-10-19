@@ -12,3 +12,10 @@
 but the per-axis survivor label and the exact criterion were not recorded in a machine-readable file.
 Do not infer labels from `cos`: the hypothesis that cosine predicts survival is exactly what the
 78-axis test refuted.
+
+## Reproducibility
+
+- `bench2-graphs/` — the eight API graphs behind the fair prompt-mix benchmark
+  (baseline seed 11/23, Helm 0.5/1.0, mix 0.9/0.8/0.7/0.5/0.3). Submit them with the
+  pod-manager (`POST /generate-async`) against a Z-Image-Turbo install; the axis is
+  `example_axes/z_room_density.safetensors`.

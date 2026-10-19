@@ -993,7 +993,7 @@
               "Node name for S&R": "HelmApply"
             },
             "widgets_values": [
-              "z_color",
+              "z_room_density",
               15,
               1.5
             ]

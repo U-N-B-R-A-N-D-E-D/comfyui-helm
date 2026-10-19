@@ -20,7 +20,7 @@ Extract a latent direction from two contrast passes into a **small `.safetensors
 
 ## Same Prompt. Same Seed. One Number Changed.
 
-Move a single slider during sampling and shift the scene along an internal direction the model already knows — while preserving camera lock, lighting geometry, and subject identity.
+Move a single slider during sampling and shift the scene along an internal direction the model already knows. On the measured H3 `density` pair the change is in the content while the room's floor line and ceiling stay put (the caption below is the honest version). **Identity and lighting preservation are not yet measured** — see [Limitations](#limitations).
 
 | **`strength = 0.00` (Baseline — identical to the un-steered run)** | **`strength = 0.25` (`density` axis at Block 20)** |
 | :---: | :---: |
@@ -61,11 +61,20 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/U-N-B-R-A-N-D-E-D/comfyui-helm.git comfyui-helm
 ```
 
-Restart ComfyUI. **Prebuilt axes (`mood.safetensors`, `density.safetensors`) ship inside `example_axes/`** and resolve automatically on a fresh clone with zero manual file copying.
+Restart ComfyUI. **Prebuilt axes (`mood.safetensors`, `density.safetensors`) ship inside `example_axes/`** and resolve automatically on a fresh clone — note both were captured on **MiniMax H3** (block 20, dim 5376); they are not Z-Image axes.
 
 ### 2. Open a Template & Steer
 
 Open ComfyUI's **Templates** browser, search **`helm`** (or drag a workflow from `example_workflows/` onto the canvas):
+
+**What each path actually needs — no hidden steps:**
+
+| Path | Nodes | Models | Hardware |
+| :--- | :--- | :--- | :--- |
+| **Z-Image** (`z_image_helm.json`) | core ComfyUI nodes only | Z-Image / Lumina2 weights | runs on a consumer GPU |
+| **MiniMax H3** (`h3_*.json`) | **+ `MiniMaxH3Director` (third-party node pack)** | H3 UNet (~21 GB int8) + Qwen3-VL 32B text encoder | the int8 UNet does **not** fit in 24 GB |
+
+No axis for Z-Image ships in this repo: the two bundled axes were captured on H3 (block 20, dim 5376) and will not fit a Z-Image model. Build a Z-Image axis first (`HelmCollect` ×2 → `HelmVector`, ~1 min), or start from a template that already routes `HelmApply` to an H3 model.
 
 | Workflow | Model | What It Does |
 | :--- | :--- | :--- |
@@ -109,7 +118,7 @@ flowchart LR
 
 ## Run as an App via the Comfy SDK
 
-`app/run_helm.py` drives Helm workflows programmatically through the **Comfy Developer Platform (`comfy-sdk`)**. The exact same command runs against a local ComfyUI instance (behind `comfy-api-proxy`), Comfy Cloud, or a serverless deployment — only `COMFY_BASE_URL` (and an API key for the hosted surfaces) change:
+`app/run_helm.py` drives Helm workflows programmatically through the **Comfy Developer Platform (`comfy-sdk`)**. The same command runs against a local ComfyUI instance (behind `comfy-api-proxy`) or **your own** hosted/serverless deployment — only `COMFY_BASE_URL` (and an API key) change. It does **not** run on Comfy Cloud: Cloud does not allow installing custom nodes, so Helm cannot be present there.
 
 ```bash
 pip install comfy-sdk comfy-api-proxy
@@ -120,7 +129,7 @@ python app/run_helm.py --list                     # Inspect available Helm slide
 python app/run_helm.py --set mood=0.15 --set density=0.25 --out out
 ```
 
-Comfy Cloud / serverless:
+Your own hosted / serverless deployment:
 
 ```bash
 export COMFY_BASE_URL=https://<deployment>.run.comfy.app
@@ -131,6 +140,15 @@ python app/run_helm.py --workflow api/h3_t2v_helm_api.json --strength 0.2 --out 
 Per-node control: `--workflow` selects the graph (default `api/h3_t2v_helm_api.json`), `--strength` is the global default, `--axis` overrides axis names, and a repeatable `--set AXIS=STRENGTH` targets individual `HelmApply` nodes; `--list` prints every node in graph order.
 
 ---
+
+## Prior Art & What Is New Here
+
+Activation steering for diffusion is not new, and we say so:
+
+- **CASteer** (Gaintseva et al., ICLR 2026, [arXiv:2503.09630](https://arxiv.org/abs/2503.09630)) — training-free steering vectors built by averaging cross-attention activations, for concept erasure in image diffusion.
+- **Concept Sliders** (Gandikota et al., ECCV 2024, [arXiv:2311.12092](https://arxiv.org/abs/2311.12092)) — interpretable sliders, but each one is a trained LoRA adaptor.
+
+What Helm adds is deliberately narrow and testable: **no training and no adapter** (a ~21 KB safetensors direction built from two passes at inference time), **on a video DiT** (MiniMax H3, not an image UNet), **inside ComfyUI** as a node pack with per-block calibration, a `safe_max` clamp and self-describing axes, and **published negative results** (the 78-axis sweep and the refuted predictor). If a plain prompt mix matches Helm at the same seed, say so — that experiment is next and its result will be published either way.
 
 ## Measured Science (Not Vibes)
 
@@ -149,7 +167,7 @@ At the same `strength = 0.30`, the `density` axis **drains** saturation (HSV sat
 ### 3. Cross-Architecture Reproduction & 78-Axis Stress Test
 
 - **Same contrast in a second architecture** (Z-Image / Lumina2, layers 9–21 of 30): the identical empty-vs-packed contrast reproduces monotonic content removal — edge density **0.018 → 0.001**. A "density" direction is not unique to H3's architecture; this is a same-effect result in two models, **not** vector transfer. [`docs/EXPERIMENTS.md` §C](docs/EXPERIMENTS.md#c-the-same-contrast-in-a-second-model-partial).
-- **78 directions measured on Z-Image — and killing our own predictor:** Roughly **1 in 3 holds** as a clean, usable knob; **2 in 3 wash out** when pushed. The lowest survivor sits at **0.31** separation while a washed-out axis sits at **0.94**. At n=23 axes, cosine alignment with the mean activation appeared to predict usable axes perfectly. We scaled the test to n=78, watched the separation collapse, and **killed our own predictor hypothesis** rather than shipping a false filter — the numbers stay, the story goes.
+- **78 directions measured on Z-Image — and killing our own predictor:** Roughly **1 in 3 holds** as a clean, usable knob; **2 in 3 wash out** when pushed. The lowest survivor sits at **0.31** separation while a washed-out axis sits at **0.94**. At n=23 axes, cosine alignment with the mean activation appeared to predict usable axes perfectly. We scaled the test to n=78, watched the separation collapse, and **killed our own predictor hypothesis** rather than shipping a false filter — the numbers stay, the story goes. The full table is in the repo: [`docs/data/zimage-78-axes.json`](docs/data/zimage-78-axes.json) (one row per axis: norm, cosine) and [`docs/data/zimage-dose-response.json`](docs/data/zimage-dose-response.json) (the 163 measured dose points).
 
 ### Calibration Table (`calibration.json`)
 
@@ -162,6 +180,16 @@ At the same `strength = 0.30`, the `density` axis **drains** saturation (HSV sat
 The shipped axes record `safe_max: 0.3`, and `HelmApply` clamps any strength past the recorded `safe_max`. LTX-2.3 ships flag-wrapped defaults with `tested: false` — module `transformer_blocks` is wired, the numbers are H3-derived placeholders pending a sweep. Axis scale is model-specific; confirm every model with 1–2 renders.
 
 ---
+
+## Limitations
+
+- **Two models measured.** H3 (t2v) and Z-Image. LTX-2.3, Krea2 and Flux are wired but **not** execution-validated; their calibration entries are `null`/`tested: false` and no claim rests on them.
+- **The axes are low-level directions, not concepts.** Pushed far enough they wash the frame out; the wash is the signature of leaving the model's manifold, not a feature.
+- **No baseline yet.** We have not compared against prompt-only (`ConditioningAverage`) or LoRA baselines. `docs/EXPERIMENTS.md` says this plainly; the comparison is the next experiment.
+- **What is measured is content and geometry proxies** (CLIP empty-room score, saturation, edge density) on one contrast pair per model. Subject identity, camera movement and lighting are **not** measured.
+- **Axis scale is model-specific.** The H3 wash-out onset (~0.45 at axis norm ~3000) is not comparable to the Z-Image band (norm ~19), which is why the calibration table lists them separately.
+- **Custom nodes only.** Comfy Cloud does not install custom nodes, so Helm runs on local or self-hosted ComfyUI.
+- **A shipped artifact has broken once.** Commit `3003fc8` replaced `example_axes/mood.safetensors` with a 6-value unit-test stub (the H3 template then failed on a dimension mismatch). It is restored, `tests/test_example_axes.py` now validates every shipped axis, and `tests/conftest.py` fails the suite if anything writes into `example_axes/`.
 
 ## Architecture & Stream Map
 

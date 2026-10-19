@@ -74,7 +74,7 @@ Open ComfyUI's **Templates** browser, search **`helm`** (or drag a workflow from
 | **Z-Image** (`z_image_helm.json`) | core ComfyUI nodes only | Z-Image / Lumina2 weights | runs on a consumer GPU |
 | **MiniMax H3** (`h3_*.json`) | **+ `MiniMaxH3Director` (third-party node pack)** | H3 UNet (~21 GB int8) + Qwen3-VL 32B text encoder | the int8 UNet does **not** fit in 24 GB |
 
-No axis for Z-Image ships in this repo: the two bundled axes were captured on H3 (block 20, dim 5376) and will not fit a Z-Image model. Build a Z-Image axis first (`HelmCollect` ×2 → `HelmVector`, ~1 min), or start from a template that already routes `HelmApply` to an H3 model.
+`mood.safetensors` and `density.safetensors` are H3 axes (block 20, dim 5376). A **Z-Image axis ships too**: `z_room_density.safetensors` (block 15, dim 3840) — point the Z-Image template at it, or build your own (`HelmCollect` ×2 → `HelmVector`, ~1 min).
 
 | Workflow | Model | What It Does |
 | :--- | :--- | :--- |
@@ -148,7 +148,7 @@ Activation steering for diffusion is not new, and we say so:
 - **CASteer** (Gaintseva et al., ICLR 2026, [arXiv:2503.09630](https://arxiv.org/abs/2503.09630)) — training-free steering vectors built by averaging cross-attention activations, for concept erasure in image diffusion.
 - **Concept Sliders** (Gandikota et al., ECCV 2024, [arXiv:2311.12092](https://arxiv.org/abs/2311.12092)) — interpretable sliders, but each one is a trained LoRA adaptor.
 
-What Helm adds is deliberately narrow and testable: **no training and no adapter** (a ~21 KB safetensors direction built from two passes at inference time), **on a video DiT** (MiniMax H3, not an image UNet), **inside ComfyUI** as a node pack with per-block calibration, a `safe_max` clamp and self-describing axes, and **published negative results** (the 78-axis sweep and the refuted predictor). If a plain prompt mix matches Helm at the same seed, say so — that experiment is next and its result will be published either way.
+What Helm adds is deliberately narrow and testable: **no training and no adapter** (a ~21 KB safetensors direction built from two passes at inference time), **on a video DiT** (MiniMax H3, not an image UNet), **inside ComfyUI** as a node pack with per-block calibration, a `safe_max` clamp and self-describing axes, and **published negative results** (the 78-axis sweep and the refuted predictor). We ran that comparison (fair design: both methods from the same starting prompt) — see §4 and `docs/EXPERIMENTS.md` §E. The mix is a scene switch; Helm is a graded change at the same framing.
 
 ## Measured Science (Not Vibes)
 
@@ -167,13 +167,18 @@ At the same `strength = 0.30`, the `density` axis **drains** saturation (HSV sat
 ### 3. Cross-Architecture Reproduction & 78-Axis Stress Test
 
 - **Same contrast in a second architecture** (Z-Image / Lumina2, layers 9–21 of 30): the identical empty-vs-packed contrast reproduces monotonic content removal — edge density **0.018 → 0.001**. A "density" direction is not unique to H3's architecture; this is a same-effect result in two models, **not** vector transfer. [`docs/EXPERIMENTS.md` §C](docs/EXPERIMENTS.md#c-the-same-contrast-in-a-second-model-partial).
-- **78 directions measured on Z-Image — and killing our own predictor:** Roughly **1 in 3 holds** as a clean, usable knob; **2 in 3 wash out** when pushed. The lowest survivor sits at **0.31** separation while a washed-out axis sits at **0.94**. At n=23 axes, cosine alignment with the mean activation appeared to predict usable axes perfectly. We scaled the test to n=78, watched the separation collapse, and **killed our own predictor hypothesis** rather than shipping a false filter — the numbers stay, the story goes. The full table is in the repo: [`docs/data/zimage-78-axes.json`](docs/data/zimage-78-axes.json) (one row per axis: norm, cosine) and [`docs/data/zimage-dose-response.json`](docs/data/zimage-dose-response.json) (the 163 measured dose points).
+- **78 directions measured on Z-Image — and killing our own predictor:** Roughly **1 in 3 holds** as a clean, usable knob; **2 in 3 wash out** when pushed. The lowest survivor sits at **0.31** cosine alignment while a washed-out axis sits at **0.94** (cosine, not a separation score). At n=23 axes, cosine alignment with the mean activation appeared to predict usable axes perfectly. We scaled the test to n=78, watched the separation collapse, and **killed our own predictor hypothesis** rather than shipping a false filter — the numbers stay, the story goes. The table is in the repo: [`docs/data/zimage-78-axes.json`](docs/data/zimage-78-axes.json) (one row per axis: norm, cosine, and whether it was dosed) and [`docs/data/zimage-dose-response.json`](docs/data/zimage-dose-response.json) (163 dose points covering 55 of the 78 — the other 23 remain unmeasured).
 
-### 4. Not a Prompt Mixer (Measured)
+### 4. Not a Prompt Mixer (Measured, Fair Design)
 
-![baseline vs Helm vs prompt mix](docs/images/bench/triptych.png)
+![baseline vs Helm vs prompt mix](docs/images/bench2/strip.png)
 
-Same model (Z-Image-Turbo), same block (15), same seed (1234), same contrast pair. `ConditioningAverage` changes the scene (P(packed) **1.00**, edge **0.021**); Helm keeps the same scene and removes detail (edge **0.0105 → 0.0012** monotonically). They are **different controls**, not two paths to the same image. Full table and caveats: [`docs/EXPERIMENTS.md` §E](docs/EXPERIMENTS.md#e-helm-vs-prompt-mixing-conditioningaverage--measured-2026-10-19); raw numbers: [`docs/data/bench-vs-prompt-mix.json`](docs/data/bench-vs-prompt-mix.json).
+Both methods start from the **same full-room prompt** and move toward empty (Z-Image-Turbo, block 15,
+seed 11; seed 23 replicates). At 0.5 Helm keeps the framing and grades it (luminance 0.317 → 0.472,
+edge 0.0266 → 0.0209); `ConditioningAverage` between 0.9 and 0.7 is visually a no-op and only flips the
+scene at 0.3 (P(empty) 0.998). The mix replaces the scene; Helm is a graded control at the same prompt.
+Full table and caveats: [`docs/EXPERIMENTS.md` §E](docs/EXPERIMENTS.md#e-helm-vs-prompt-mixing-conditioningaverage--fair-re-test-2026-10-19);
+raw numbers: [`docs/data/bench2-vs-prompt-mix.json`](docs/data/bench2-vs-prompt-mix.json).
 
 ### Calibration Table (`calibration.json`)
 
@@ -191,7 +196,7 @@ The shipped axes record `safe_max: 0.3`, and `HelmApply` clamps any strength pas
 
 - **Two models measured.** H3 (t2v) and Z-Image. LTX-2.3, Krea2 and Flux are wired but **not** execution-validated; their calibration entries are `null`/`tested: false` and no claim rests on them.
 - **The axes are low-level directions, not concepts.** Pushed far enough they wash the frame out; the wash is the signature of leaving the model's manifold, not a feature.
-- **No baseline yet.** We have not compared against prompt-only (`ConditioningAverage`) or LoRA baselines. `docs/EXPERIMENTS.md` says this plainly; the comparison is the next experiment.
+- **One baseline measured.** Helm vs prompt-only (`ConditioningAverage`) is measured in §4 / `docs/EXPERIMENTS.md` §E (one model, one contrast pair, two seeds). A **LoRA baseline is not measured**.
 - **What is measured is content and geometry proxies** (CLIP empty-room score, saturation, edge density) on one contrast pair per model. Subject identity, camera movement and lighting are **not** measured.
 - **Axis scale is model-specific.** The H3 wash-out onset (~0.45 at axis norm ~3000) is not comparable to the Z-Image band (norm ~19), which is why the calibration table lists them separately.
 - **Custom nodes only.** Comfy Cloud does not install custom nodes, so Helm runs on local or self-hosted ComfyUI.

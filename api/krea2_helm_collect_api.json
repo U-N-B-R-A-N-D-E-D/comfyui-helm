@@ -1,0 +1,162 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "krea2_turbo_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "UNETLoader"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+      "type": "krea2",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "CLIPLoader"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "_meta": {
+      "title": "VAELoader"
+    }
+  },
+  "4": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "lora_name": "krea2/fedor_bypass.safetensors",
+      "strength_model": 0.8,
+      "strength_clip": 0.8,
+      "model": [
+        1,
+        0
+      ],
+      "clip": [
+        2,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LoraLoader"
+    }
+  },
+  "5": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 42,
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        11,
+        0
+      ],
+      "positive": [
+        6,
+        0
+      ],
+      "negative": [
+        7,
+        0
+      ],
+      "latent_image": [
+        8,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "Photorealistic character reference sheet for video consistency, woman in her early 20s, mixed race between latin, asian and russian, beautiful face, gentle features, but with a distinct look that makes her stand out from regular pretty standards, including something about her face like freckles, crooked tooth or rare eye color, mix from the 3 image references, front view, neutral standing pose, arms slightly away from body, direct eye contact with camera, neutral calm expression. Studio photography, 85mm lens, f/2.8, soft diffused lighting, no harsh shadows, even illumination across face and body. Solid light grey background (#D3D3D3). Sharp focus on facial features, realistic skin texture with visible pores, natural hair texture, detailed clothing fabric. High fidelity, 8k, professional editorial quality, true-to-life colors.",
+      "clip": [
+        2,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "CLIPTextEncode"
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "deformed hands, extra fingers, fused limbs, identity drift, face morphing, asymmetric eyes, melting face, distorted proportions, cartoon, anime, 3d render, cgi, digital art, sketch, painting, excessive contrast, dark shadows, busy background, text, watermark, logo, multiple people, cropped body, head cut off.",
+      "clip": [
+        2,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "CLIPTextEncode"
+    }
+  },
+  "8": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "EmptyLatentImage"
+    }
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        5,
+        0
+      ],
+      "vae": [
+        3,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEDecode"
+    }
+  },
+  "10": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "Krea2",
+      "images": [
+        9,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SaveImage"
+    }
+  },
+  "11": {
+    "class_type": "HelmCollect",
+    "inputs": {
+      "tag": "pos",
+      "block": 20,
+      "cond_only": false,
+      "model": [
+        4,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "HelmCollect"
+    }
+  }
+}

@@ -169,6 +169,12 @@ At the same `strength = 0.30`, the `density` axis **drains** saturation (HSV sat
 - **Same contrast in a second architecture** (Z-Image / Lumina2, layers 9–21 of 30): the identical empty-vs-packed contrast reproduces monotonic content removal — edge density **0.018 → 0.001**. A "density" direction is not unique to H3's architecture; this is a same-effect result in two models, **not** vector transfer. [`docs/EXPERIMENTS.md` §C](docs/EXPERIMENTS.md#c-the-same-contrast-in-a-second-model-partial).
 - **78 directions measured on Z-Image — and killing our own predictor:** Roughly **1 in 3 holds** as a clean, usable knob; **2 in 3 wash out** when pushed. The lowest survivor sits at **0.31** separation while a washed-out axis sits at **0.94**. At n=23 axes, cosine alignment with the mean activation appeared to predict usable axes perfectly. We scaled the test to n=78, watched the separation collapse, and **killed our own predictor hypothesis** rather than shipping a false filter — the numbers stay, the story goes. The full table is in the repo: [`docs/data/zimage-78-axes.json`](docs/data/zimage-78-axes.json) (one row per axis: norm, cosine) and [`docs/data/zimage-dose-response.json`](docs/data/zimage-dose-response.json) (the 163 measured dose points).
 
+### 4. Not a Prompt Mixer (Measured)
+
+![baseline vs Helm vs prompt mix](docs/images/bench/triptych.png)
+
+Same model (Z-Image-Turbo), same block (15), same seed (1234), same contrast pair. `ConditioningAverage` changes the scene (P(packed) **1.00**, edge **0.021**); Helm keeps the same scene and removes detail (edge **0.0105 → 0.0012** monotonically). They are **different controls**, not two paths to the same image. Full table and caveats: [`docs/EXPERIMENTS.md` §E](docs/EXPERIMENTS.md#e-helm-vs-prompt-mixing-conditioningaverage--measured-2026-10-19); raw numbers: [`docs/data/bench-vs-prompt-mix.json`](docs/data/bench-vs-prompt-mix.json).
+
 ### Calibration Table (`calibration.json`)
 
 | Model | Module | Blocks | Hidden dim | Default block | Verified band | Usable strength | Axis norm |
@@ -177,7 +183,7 @@ At the same `strength = 0.30`, the `density` axis **drains** saturation (HSV sat
 | **Z-Image / Lumina2** | `layers` | 30 | 3840 | 15 | 9–21 | 0.50–3.00 | ~19 |
 | **LTX-2.3** | `transformer_blocks` | — | — | 20 | — | — | — |
 
-The shipped axes record `safe_max: 0.3`, and `HelmApply` clamps any strength past the recorded `safe_max`. LTX-2.3 ships flag-wrapped defaults with `tested: false` — module `transformer_blocks` is wired, the numbers are H3-derived placeholders pending a sweep. Axis scale is model-specific; confirm every model with 1–2 renders.
+The shipped axes record `safe_max: 0.3`, and `HelmApply` clamps any strength past the recorded `safe_max`. LTX-2.3 ships flag-wrapped defaults with `tested: false` — module `transformer_blocks` is wired, the numbers are H3-derived placeholders pending a sweep. Axis scale is model-specific; confirm every model with 1–2 renders. The Z-Image band is not a law: on the §E benchmark axis the wash is already visible at 0.5, so check the wash onset per axis.
 
 ---
 

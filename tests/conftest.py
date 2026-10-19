@@ -170,3 +170,29 @@ def helm(tmp_path, monkeypatch):
         pack=os.path.dirname(os.path.realpath(nodes.__file__)),
         root=ROOT,
     )
+
+
+# --- guard: the shipped example_axes/ is READ-ONLY for the test suite -------------------------
+# A unit test once wrote a 6-element stub into example_axes/mood.safetensors and the artifact was
+# committed (3003fc8), breaking the flagship H3 workflow on a fresh clone. Reads are fine; writes
+# are a bug. Snapshot before/after the session and fail loudly.
+
+def _snapshot_example_axes():
+    d = os.path.join(ROOT, "example_axes")
+    if not os.path.isdir(d):
+        return {}
+    return {
+        f: (os.stat(os.path.join(d, f)).st_size, os.stat(os.path.join(d, f)).st_mtime_ns)
+        for f in os.listdir(d)
+    }
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _example_axes_are_read_only():
+    before = _snapshot_example_axes()
+    yield
+    after = _snapshot_example_axes()
+    assert before == after, (
+        "a test wrote into example_axes/ -- shipped axes must stay read-only "
+        f"(before={before}, after={after})"
+    )

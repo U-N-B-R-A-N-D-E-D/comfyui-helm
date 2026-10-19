@@ -133,6 +133,8 @@ as §C):
 | 18 | 0.011 | 0.9999 | 1212 | 13.5 |
 | 29 | 0.085 | 0.996 | 1112 | 94 |
 
+**Data in the repo:** the per-axis table (78 rows: `axis`, `norm`, `cos`) is [`data/zimage-78-axes.json`](data/zimage-78-axes.json); the 163 measured dose points behind the bands are [`data/zimage-dose-response.json`](data/zimage-dose-response.json).
+
 **Reading — this is data.** The separation is structural, not noise: it is largest at the first blocks,
 falls monotonically into the middle (minimum at block 18), and rises again at the end. The two prompts
 pull hardest at the extremes of the stack.
@@ -152,3 +154,43 @@ The usable scale is model-specific; confirm it with the 1–2 renders `calibrati
 measurement* — a starting point for a short sweep, not an auto-calibrator. **Caveat:** one model, one
 contrast, one graph. H3 was not probed: the GPU window was shared with another workload, and the Z-Image
 result already answers the question this feature was built on.
+
+## E. Helm vs prompt mixing (`ConditioningAverage`) — measured 2026-10-19
+
+The obvious objection: *isn't this just mixing two prompts?* ComfyUI ships `ConditioningAverage`, which
+interpolates two conditionings with one slider. We measured it against Helm at the same seed.
+
+**Setup.** Z-Image-Turbo, block 15, seed 1234, `cfg 1.0`, 8 steps, `res_multistep`. The axis was built
+in the same session from the two prompts below (`HelmCollect` ×2 → `HelmVector`), so both methods use
+the *same* contrast:
+
+- pos: `an empty room with a window and a bare floor, documentary photography`
+- neg: `the same room packed with server racks, cables and crates, documentary photography`
+- mix: `ConditioningAverage(conditioning_to = pos, conditioning_from = neg, conditioning_to_strength = 0.5)`
+
+| variant | lum | sat | edge | P(empty) | P(packed) |
+|:--|--:|--:|--:|--:|--:|
+| baseline (pos, no steering) | 0.424 | 0.167 | 0.0105 | 0.997 | 0.003 |
+| Helm 0.5 | 0.621 | 0.176 | 0.0046 | 0.998 | 0.002 |
+| Helm 0.75 | 0.679 | 0.182 | 0.0028 | 0.998 | 0.002 |
+| Helm 1.0 | 0.715 | 0.188 | 0.0019 | 0.997 | 0.003 |
+| Helm 1.5 | 0.755 | 0.196 | 0.0012 | 1.000 | 0.000 |
+| **prompt mix 0.5** | 0.315 | 0.070 | **0.0210** | **0.000** | **1.000** |
+
+CLIP anchors: `an empty room` / `a room packed with server racks and machinery`; edge = mean gradient
+magnitude; lum/sat = HSV-style means. Raw numbers: [`data/bench-vs-prompt-mix.json`](data/bench-vs-prompt-mix.json).
+Images: [`images/bench/triptych.png`](images/bench/triptych.png).
+
+**Reading — the two are not the same control.** The prompt mix *changes the scene*: the room reads as
+packed (P(packed) = 1.0) and it carries **more** structure than the baseline (edge 0.021 vs 0.0105).
+Helm keeps the scene ("empty room", P(empty) ≈ 1.0) and **removes detail** monotonically
+(edge 0.0105 → 0.0012), i.e. this diff-in-means axis encodes *how much is drawn*, not *what is drawn*.
+That is consistent with §"What this is not": these are low-level directions, not concepts.
+
+**Two honest caveats.** (1) One axis, one contrast, one model — do not generalize to "all axes". (2) At
+strength 0.5 the wash is already visible (edge −56%), so the Z-Image band in the calibration table
+(0.5–3.0) is *axis-dependent*: check the wash onset per axis before trusting the upper end.
+
+**What this buys the pitch.** Helm is not a slower prompt slider and should not be sold as one. It is a
+training-free, in-ComfyUI knob over *how much* a direction is expressed at a layer, while the prompt
+still decides *what* is in the frame.

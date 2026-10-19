@@ -1,0 +1,58 @@
+{
+ "seed": 1234,
+ "model": "z_image_turbo_bf16",
+ "block": 15,
+ "axis": "bench (empty vs packed)",
+ "prompts": {
+  "pos": "an empty room with a window and a bare floor, documentary photography",
+  "neg": "the same room packed with server racks, cables and crates, documentary photography"
+ },
+ "anchors": [
+  "an empty room",
+  "a room packed with server racks and machinery"
+ ],
+ "results": {
+  "baseline": {
+   "lum": 0.424,
+   "sat": 0.167,
+   "edge": 0.0105,
+   "p_empty": 0.997,
+   "p_packed": 0.003
+  },
+  "helm_0.5": {
+   "lum": 0.621,
+   "sat": 0.176,
+   "edge": 0.0046,
+   "p_empty": 0.998,
+   "p_packed": 0.002
+  },
+  "helm_0.75": {
+   "lum": 0.679,
+   "sat": 0.182,
+   "edge": 0.0028,
+   "p_empty": 0.998,
+   "p_packed": 0.002
+  },
+  "helm_1.0": {
+   "lum": 0.715,
+   "sat": 0.188,
+   "edge": 0.0019,
+   "p_empty": 0.997,
+   "p_packed": 0.003
+  },
+  "helm_1.5": {
+   "lum": 0.755,
+   "sat": 0.196,
+   "edge": 0.0012,
+   "p_empty": 1.0,
+   "p_packed": 0.0
+  },
+  "mix_0.5": {
+   "lum": 0.315,
+   "sat": 0.07,
+   "edge": 0.021,
+   "p_empty": 0.0,
+   "p_packed": 1.0
+  }
+ }
+}

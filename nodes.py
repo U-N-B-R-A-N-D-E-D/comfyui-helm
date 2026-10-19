@@ -322,7 +322,69 @@ def _tuple_slot(module, out):
         f"lives in the README's Supported architectures section).")
 
 
-def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path):
+def _steer(x, d, u, mode="push", clamp_k=1.0):
+    """Pure. Apply one Helm step to the visual-stream tensor.
+
+    push  : x + d                      (the published behavior; default)
+    norm  : x + d, then rescale each token to ||x|| -- the wash looks like excess energy
+    clamp : move the projection onto the axis and clamp it to +/- clamp_k*||x||
+            ("fix instead of push": never leave the range the model already produced)
+    """
+    if mode == "push":
+        return x + d
+    if mode == "norm":
+        y = x + d
+        nx = x.norm(dim=-1, keepdim=True)
+        ny = y.norm(dim=-1, keepdim=True)
+        return y * (nx / (ny + 1e-8))
+    if mode == "clamp":
+        p = (x * u).sum(dim=-1, keepdim=True)
+        delta = (d * u).sum(dim=-1, keepdim=True)
+        lim = float(clamp_k) * x.norm(dim=-1, keepdim=True)
+        p_new = torch.clamp(p + delta, -lim, lim)
+        return x + (p_new - p) * u
+    raise ValueError(f"unknown Helm mode {mode!r}; expected push, norm or clamp")
+
+
+def _parse_grid(grid):
+    """Pure. 'H,W' or 'H,W,T'. Explicit only: a mask never infers the layout."""
+    parts = [int(v) for v in grid.replace("x", ",").replace(" ", ",").split(",") if v.strip()]
+    if len(parts) == 2:
+        return parts[0], parts[1], 1
+    if len(parts) == 3:
+        return parts[0], parts[1], parts[2]
+    raise ValueError(f"grid must be H,W or H,W,T (got {grid!r})")
+
+
+def _token_mask(mask2d, layout, frames):
+    """Pure. mask2d: [h, w] (bool/float). Returns [1, h*w*frames, 1] in the given token order."""
+    m = torch.as_tensor(mask2d, dtype=torch.float32).reshape(-1)
+    if layout == "h_w":
+        flat = m
+    elif layout == "t_h_w":                      # t outer, then h, then w
+        flat = m.repeat(int(frames))
+    elif layout == "h_w_t":                      # h,w outer, t inner
+        flat = m.reshape(-1, 1).repeat(1, int(frames)).reshape(-1)
+    else:
+        raise ValueError(f"unknown mask layout {layout!r}; expected h_w, t_h_w or h_w_t")
+    return flat.reshape(1, flat.numel(), 1)
+
+
+def _load_mask(path, h, w):
+    """Lazy Pillow import (ComfyUI ships it); resizes to the token grid and thresholds at 0.5."""
+    from PIL import Image
+    import numpy as np
+    im = Image.open(path).convert("L").resize((int(w), int(h)), Image.BILINEAR)
+    return np.asarray(im, dtype="float32") / 255.0 > 0.5
+
+
+def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path,
+                     mode="push", token_mask=None, clamp_k=1.0, debug=False):
+    unit = None
+    if mode == "clamp":
+        v = vec / (vec.norm() + 1e-8)
+        unit = v
+    logged = {"once": False}
     def fn(m, args, out, flags=None):
         slot = _tuple_slot(m, out)
         x = out[slot] if slot is not None else out
@@ -330,10 +392,22 @@ def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path):
             raise RuntimeError(
                 f"axis '{axis_name}' dim {vec.shape[-1]} != block output dim {x.shape[-1]}; "
                 f"this axis was built for a different model (see {meta_path})")
+        if debug and not logged["once"]:
+            print(f"[helm] shape debug: block={type(m).__name__} out={tuple(out.shape) if hasattr(out, 'shape') else 'tuple'} "
+                  f"x={tuple(x.shape)} seq={int(x.shape[1]) if x.dim() == 3 else '?'} mode={mode}")
+            logged["once"] = True
         d = vec.to(x.dtype).to(x.device) * strength
         if cond_only and flags is not None:
             d = _mask_by_flags(d, x, flags)
-        y = x + d
+        if token_mask is not None:
+            m2d, mlayout, mframes = token_mask
+            tm = _token_mask(m2d, mlayout, mframes)
+            if tm.shape[1] != x.shape[1]:
+                raise RuntimeError(f"mask covers {tm.shape[1]} tokens, block has {x.shape[1]}; "
+                                   f"grid/layout does not match this model")
+            d = d * tm.to(device=x.device, dtype=x.dtype)
+        u = unit.to(x.dtype).to(x.device) if unit is not None else None
+        y = _steer(x, d, u, mode=mode, clamp_k=clamp_k)
         if slot is None:
             return y
         return tuple(y if i == slot else o for i, o in enumerate(out))
@@ -565,13 +639,25 @@ class HelmApply:
                                         "tooltip": "sampling-fraction window start. Default 0.0 preserves the published result."}),
             "end_percent": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
                                       "tooltip": "sampling-fraction window end. Default 1.0 preserves the published result."}),
+        }, "optional": {
+            "mode": (["push", "norm", "clamp"], {"default": "push",
+                     "tooltip": "push = published x+strength*axis. norm = same, rescaled to the token's original norm. clamp = move the axis projection, clamped to +/- clamp_k*||x||."}),
+            "mask": ("STRING", {"default": "",
+                     "tooltip": "path to a black/white PNG. White = apply the axis there (requires layout + grid). Empty = global (published behavior)."}),
+            "layout": (["none", "h_w", "t_h_w", "h_w_t"], {"default": "none",
+                     "tooltip": "token order of the block output. h_w = image; t_h_w = frame-major video; h_w_t = frame-inner. Never guessed: the mask is refused if the grid does not multiply to the token count."}),
+            "grid": ("STRING", {"default": "",
+                     "tooltip": "explicit H,W (image) or H,W,T (video). Empty is only allowed for h_w, where a square is inferred."}),
+            "clamp_k": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 10.0, "step": 0.1,
+                     "tooltip": "clamp mode only: projection limit as a multiple of each token's norm."}),
         }}
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
     CATEGORY = "Helm"
 
-    def run(self, model, axis, block, strength, dial=0.0, cond_only=False, start_percent=0.0, end_percent=1.0):
+    def run(self, model, axis, block, strength, dial=0.0, cond_only=False, start_percent=0.0, end_percent=1.0,
+            mode="push", mask="", layout="none", grid="", clamp_k=1.0):
         path = _resolve_axis(axis)
         vec = _load_axis(path)
         meta = _read_meta(axis) or {}
@@ -596,14 +682,26 @@ class HelmApply:
                   f"Past the band the frame washes out.")
             strength = float(safe) if strength > 0 else -float(safe)
 
+        token_mask = None
+        if mask:
+            if layout == "none":
+                raise ValueError("mask given without a layout; pass layout=h_w (image) or t_h_w/h_w_t (video)")
+            if not grid:
+                raise ValueError("mask given without grid; pass grid=H,W (image) or H,W,T (video) — Helm does not guess the token layout")
+            gh, gw, gf = _parse_grid(grid)
+            token_mask = (_load_mask(mask, gh, gw), layout, gf)
+            print(f"[helm] mask={mask} layout={layout} grid={gh}x{gw}x{gf}")
+
         mp = model.clone()
         entry = _calib_for(mp)
-        fn = _make_apply_hook(vec, strength, axis, cond_only, meta_path)
+        fn = _make_apply_hook(vec, strength, axis, cond_only, meta_path,
+                              mode=mode, token_mask=token_mask, clamp_k=clamp_k,
+                              debug=bool(os.environ.get("HELM_DEBUG_SHAPE")))
         _add_hook(mp, {"block": int(block), "fn": fn, "cond_only": bool(cond_only),
                        "start": float(start_percent), "end": float(end_percent)})
         _install_wrapper(mp)
         cal = f", calibrated module={entry.get('module')}" if entry else ""
-        print(f"[helm] applying '{axis}' at block {block}, strength={strength} "
+        print(f"[helm] applying '{axis}' at block {block}, strength={strength}, mode={mode} "
               f"(norm={float(vec.norm()):.2f}, safe_max={safe or '-'}, dim={vec.shape[-1]}, "
               f"window={start_percent}-{end_percent}{cal})")
         return (mp,)

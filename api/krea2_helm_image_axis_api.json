@@ -1,0 +1,176 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "krea2_turbo_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "UNETLoader"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+      "type": "krea2",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "CLIPLoader"
+    }
+  },
+  "3": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "lora_name": "krea2/fedor_bypass.safetensors",
+      "strength_model": 0.8,
+      "strength_clip": 0.8,
+      "model": [
+        1,
+        0
+      ],
+      "clip": [
+        2,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LoraLoader"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "LoadImage"
+    }
+  },
+  "5": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "_meta": {
+      "title": "VAELoader"
+    }
+  },
+  "6": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        4,
+        0
+      ],
+      "vae": [
+        5,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEEncode"
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "a plain neutral photograph",
+      "clip": [
+        3,
+        1
+      ]
+    },
+    "_meta": {
+      "title": "CLIPTextEncode"
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "",
+      "clip": [
+        3,
+        1
+      ]
+    },
+    "_meta": {
+      "title": "CLIPTextEncode"
+    }
+  },
+  "9": {
+    "class_type": "HelmCollect",
+    "inputs": {
+      "tag": "imgA",
+      "block": 20,
+      "cond_only": false,
+      "model": [
+        3,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "HelmCollect"
+    }
+  },
+  "10": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 42,
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.55,
+      "model": [
+        9,
+        0
+      ],
+      "positive": [
+        7,
+        0
+      ],
+      "negative": [
+        8,
+        0
+      ],
+      "latent_image": [
+        6,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        10,
+        0
+      ],
+      "vae": [
+        5,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEDecode"
+    }
+  },
+  "12": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "helm_imgpair",
+      "images": [
+        11,
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SaveImage"
+    }
+  }
+}

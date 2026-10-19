@@ -41,7 +41,7 @@
         0
       ],
       "frame_rate": 24,
-      "global_prompt": "<PROMPT>",
+      "global_prompt": "a long corridor of glass server racks at dusk, cold blue light, shallow depth of field, 35mm, no people",
       "height": 864,
       "model": [
         "902",
@@ -86,7 +86,7 @@
     "class_type": "SaveVideo",
     "inputs": {
       "codec": "auto",
-      "filename_prefix": "video/hal-h3-t2v",
+      "filename_prefix": "video/helm-h3-t2v",
       "format": "auto",
       "video": [
         "22",
@@ -97,7 +97,7 @@
   "30": {
     "class_type": "MiniMaxH3DirectorGroupImageToVideo",
     "inputs": {
-      "prompt": "<PROMPT>",
+      "prompt": "a long corridor of glass server racks at dusk, cold blue light, shallow depth of field, 35mm, no people",
       "duration_sec": 10
     }
   },
@@ -110,7 +110,11 @@
       ],
       "axis": "mood",
       "block": 20,
-      "strength": 0.1
+      "strength": 0.1,
+      "dial": 0.0,
+      "cond_only": false,
+      "start_percent": 0.0,
+      "end_percent": 1.0
     },
     "_meta": {
       "title": "Helm (mood)"
@@ -125,7 +129,11 @@
       ],
       "axis": "density",
       "block": 20,
-      "strength": 0.1
+      "strength": 0.1,
+      "dial": 0.0,
+      "cond_only": false,
+      "start_percent": 0.0,
+      "end_percent": 1.0
     },
     "_meta": {
       "title": "Helm (density)"

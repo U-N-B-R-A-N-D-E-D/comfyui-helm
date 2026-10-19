@@ -133,6 +133,8 @@ as §C):
 | 18 | 0.011 | 0.9999 | 1212 | 13.5 |
 | 29 | 0.085 | 0.996 | 1112 | 94 |
 
+**Data in the repo:** the per-axis table (78 rows: `axis`, `norm`, `cos`) is [`data/zimage-78-axes.json`](data/zimage-78-axes.json); the 163 measured dose points behind the bands are [`data/zimage-dose-response.json`](data/zimage-dose-response.json).
+
 **Reading — this is data.** The separation is structural, not noise: it is largest at the first blocks,
 falls monotonically into the middle (minimum at block 18), and rises again at the end. The two prompts
 pull hardest at the extremes of the stack.

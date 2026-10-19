@@ -112,7 +112,7 @@ the default (off) settings.
 
 - Not a claim that "density" or "mood" are *concepts*. They are low-level directions; the wash
   at high strength is the signature of pushing a sample off the model's manifold.
-- Not a comparison against prompt-only or LoRA baselines. We have not measured those.
+- Not a comparison against **LoRA** baselines (not measured). The prompt-only (`ConditioningAverage`) comparison is §E, with the fair design.
 - One model (H3) for A and B, one contrast pair each.
 
 ## D. The probe: what a per-block profile tells us, and what it does not (Z-Image)
@@ -155,42 +155,46 @@ measurement* — a starting point for a short sweep, not an auto-calibrator. **C
 contrast, one graph. H3 was not probed: the GPU window was shared with another workload, and the Z-Image
 result already answers the question this feature was built on.
 
-## E. Helm vs prompt mixing (`ConditioningAverage`) — measured 2026-10-19
+## E. Helm vs prompt mixing (`ConditioningAverage`) — fair re-test, 2026-10-19
 
-The obvious objection: *isn't this just mixing two prompts?* ComfyUI ships `ConditioningAverage`, which
-interpolates two conditionings with one slider. We measured it against Helm at the same seed.
+The first version of this test was **wrong**: the baseline used the *empty* prompt, Helm pushed further
+toward empty, while `ConditioningAverage` at 0.5 moved toward *packed*. It compared opposite directions.
 
-**Setup.** Z-Image-Turbo, block 15, seed 1234, `cfg 1.0`, 8 steps, `res_multistep`. The axis was built
-in the same session from the two prompts below (`HelmCollect` ×2 → `HelmVector`), so both methods use
-the *same* contrast:
+This is the fair design: **both methods start from the same full-room prompt** and are asked to move
+toward empty. Z-Image-Turbo, block 15, `cfg 1.0`, 8 steps, `res_multistep`. Axis captured in-session
+(`bench`, pos = empty, neg = packed). Seeds 11 and 23.
 
-- pos: `an empty room with a window and a bare floor, documentary photography`
-- neg: `the same room packed with server racks, cables and crates, documentary photography`
-- mix: `ConditioningAverage(conditioning_to = pos, conditioning_from = neg, conditioning_to_strength = 0.5)`
+Prompts: full = `the same room packed with server racks, cables and crates, documentary photography`;
+empty = `an empty room with a window and a bare floor, documentary photography`.
+Mix: `ConditioningAverage(conditioning_to = full, conditioning_from = empty, strength = s)`; lower `s`
+moves further toward empty.
 
 | variant | lum | sat | edge | P(empty) | P(packed) |
 |:--|--:|--:|--:|--:|--:|
-| baseline (pos, no steering) | 0.424 | 0.167 | 0.0105 | 0.997 | 0.003 |
-| Helm 0.5 | 0.621 | 0.176 | 0.0046 | 0.998 | 0.002 |
-| Helm 0.75 | 0.679 | 0.182 | 0.0028 | 0.998 | 0.002 |
-| Helm 1.0 | 0.715 | 0.188 | 0.0019 | 0.997 | 0.003 |
-| Helm 1.5 | 0.755 | 0.196 | 0.0012 | 1.000 | 0.000 |
-| **prompt mix 0.5** | 0.315 | 0.070 | **0.0210** | **0.000** | **1.000** |
+| full room, seed 11 (baseline) | 0.317 | 0.239 | 0.0266 | 0.000 | 1.000 |
+| full room, seed 23 | 0.307 | 0.190 | 0.0262 | 0.000 | 1.000 |
+| **Helm 0.5, seed 11** | **0.472** | 0.156 | **0.0209** | 0.000 | 1.000 |
+| Helm 0.5, seed 23 | 0.473 | 0.186 | 0.0162 | 0.000 | 1.000 |
+| Helm 1.0, seed 11 | 0.640 | 0.241 | 0.0081 | 0.000 | 1.000 |
+| mix 0.9 | 0.312 | 0.220 | 0.0265 | 0.000 | 1.000 |
+| mix 0.8 | 0.314 | 0.205 | 0.0269 | 0.000 | 1.000 |
+| mix 0.7 | 0.309 | 0.183 | 0.0258 | 0.000 | 1.000 |
+| mix 0.5 | 0.344 | 0.088 | 0.0133 | 0.000 | 1.000 |
+| mix 0.3 | 0.413 | 0.045 | 0.0098 | **0.998** | 0.002 |
 
-CLIP anchors: `an empty room` / `a room packed with server racks and machinery`; edge = mean gradient
-magnitude; lum/sat = HSV-style means. Raw numbers: [`data/bench-vs-prompt-mix.json`](data/bench-vs-prompt-mix.json).
-Images: [`images/bench/triptych.png`](images/bench/triptych.png).
+CLIP anchors: `an empty room` / `a room packed with server racks and machinery`. Edge = mean gradient
+magnitude. Raw numbers: [`data/bench2-vs-prompt-mix.json`](data/bench2-vs-prompt-mix.json).
+Images: [`images/bench2/strip.png`](images/bench2/strip.png).
 
-**Reading — the two are not the same control.** The prompt mix *changes the scene*: the room reads as
-packed (P(packed) = 1.0) and it carries **more** structure than the baseline (edge 0.021 vs 0.0105).
-Helm keeps the scene ("empty room", P(empty) ≈ 1.0) and **removes detail** monotonically
-(edge 0.0105 → 0.0012), i.e. this diff-in-means axis encodes *how much is drawn*, not *what is drawn*.
-That is consistent with §"What this is not": these are low-level directions, not concepts.
+**Reading.**
 
-**Two honest caveats.** (1) One axis, one contrast, one model — do not generalize to "all axes". (2) At
-strength 0.5 the wash is already visible (edge −56%), so the Z-Image band in the calibration table
-(0.5–3.0) is *axis-dependent*: check the wash onset per axis before trusting the upper end.
+- **Helm is a graded control at the same framing.** At 0.5 the room still reads as the packed room
+  (P(packed) = 1.0) but the frame brightens (lum +0.16) and loses detail (edge -21%), reproducibly across
+  seeds 11 and 23. At 1.0 it is visibly washed (edge -70%) — the documented failure mode.
+- **The prompt mix is a step, not a slider, on this model.** Between 0.9 and 0.7 it is visually a no-op
+  (edge within ±1%); it only moves hard at 0.5 (-50%) and flips the scene at 0.3 (P(empty) = 0.998).
+- **They are different controls.** The mix replaces the scene; Helm grades the look at the same prompt
+  and framing. That is the defensible claim — not "the mix does nothing" (it does, at 0.3).
 
-**What this buys the pitch.** Helm is not a slower prompt slider and should not be sold as one. It is a
-training-free, in-ComfyUI knob over *how much* a direction is expressed at a layer, while the prompt
-still decides *what* is in the frame.
+**Caveats.** One model (Z-Image-Turbo), one contrast pair, two seeds; at 0.5 part of Helm's brightening
+may be the wash the docs describe. A LoRA baseline is still not measured.

@@ -240,3 +240,7 @@ curl -s http://127.0.0.1:8188/object_info | grep -o 'Helm[A-Za-z]*' | sort -u
 | **Model weights (H3, Z-Image, LTX, Krea2, Flux)** | Governed by their respective licenses; no weights bundled |
 
 Built by **[ U N B R A N D E D ]** for the [ComfyUI](https://github.com/comfyanonymous/ComfyUI) community.
+
+## Related (public)
+
+- [`comfy-api-graphs`](https://github.com/U-N-B-R-A-N-D-E-D/comfy-api-graphs) — zero-dependency Python helper to load, mutate and validate ComfyUI API-format graphs.

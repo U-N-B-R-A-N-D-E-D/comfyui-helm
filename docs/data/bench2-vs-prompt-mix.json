@@ -1,0 +1,90 @@
+{
+ "design": "fair re-test (2026-10-19): BOTH methods start from the FULL room prompt and move toward empty",
+ "model": "z_image_turbo_bf16",
+ "block": 15,
+ "axis": "bench (pos=empty, neg=packed)",
+ "seed": [
+  11,
+  23
+ ],
+ "prompts": {
+  "full": "the same room packed with server racks, cables and crates, documentary photography",
+  "empty": "an empty room with a window and a bare floor, documentary photography"
+ },
+ "anchors": [
+  "an empty room",
+  "a room packed with server racks and machinery"
+ ],
+ "results": {
+  "full_s11": {
+   "lum": 0.317,
+   "sat": 0.239,
+   "edge": 0.0266,
+   "p_empty": 0.0,
+   "p_packed": 1.0
+  },
+  "full_s23": {
+   "lum": 0.307,
+   "sat": 0.19,
+   "edge": 0.0262,
+   "p_empty": 0.0,
+   "p_packed": 1.0
+  },
+  "helm0.5_s11": {
+   "lum": 0.472,
+   "sat": 0.156,
+   "edge": 0.0209,
+   "p_empty": 0.0,
+   "p_packed": 1.0
+  },
+  "helm0.5_s23": {
+   "lum": 0.473,
+   "sat": 0.186,
+   "edge": 0.0162,
+   "p_empty": 0.0,
+   "p_packed": 1.0
+  },
+  "helm1.0_s11": {
+   "lum": 0.64,
+   "sat": 0.241,
+   "edge": 0.0081,
+   "p_empty": 0.0,
+   "p_packed": 1.0
+  },
+  "mix0.9_s11": {
+   "lum": 0.312,
+   "sat": 0.22,
+   "edge": 0.0265,
+   "p_empty": 0.0,
+   "p_packed": 1.0
+  },
+  "mix0.8_s11": {
+   "lum": 0.314,
+   "sat": 0.205,
+   "edge": 0.0269,
+   "p_empty": 0.0,
+   "p_packed": 1.0
+  },
+  "mix0.7_s11": {
+   "lum": 0.309,
+   "sat": 0.183,
+   "edge": 0.0258,
+   "p_empty": 0.0,
+   "p_packed": 1.0
+  },
+  "mix0.5_s11": {
+   "lum": 0.344,
+   "sat": 0.088,
+   "edge": 0.0133,
+   "p_empty": 0.0,
+   "p_packed": 1.0
+  },
+  "mix0.3_s11": {
+   "lum": 0.413,
+   "sat": 0.045,
+   "edge": 0.0098,
+   "p_empty": 0.998,
+   "p_packed": 0.002
+  }
+ }
+}

@@ -198,3 +198,38 @@ Images: [`images/bench2/strip.png`](images/bench2/strip.png).
 
 **Caveats.** One model (Z-Image-Turbo), one contrast pair, two seeds; at 0.5 part of Helm's brightening
 may be the wash the docs describe. A LoRA baseline is still not measured.
+
+
+## F. Fix vs push, and the step window — measured 2026-10-19
+
+Pre-registered before the run (no tuning after): an axis **holds** at a mode if (a) its
+CLIP(pos)-CLIP(neg) score moves monotonically across the three strengths in one direction, (b) edge
+density stays >= 50% of the unsteered baseline, and (c) |luminance - baseline| <= 0.20 at every point.
+Otherwise it **washes**.
+
+Design: 55 dosed Z-Image axes, the **same** strengths the 2026-10-18 dose sweep used for `push`
+(reused renders, not regenerated), with `norm` (rescale each token to its original norm) and `clamp`
+(move the projection inside a `clamp_k`*||x|| budget) re-rendered at those strengths; 55 step-window
+renders (`start=0.6`, same strength). Seed 11, block from each axis header.
+
+| mode | holds | washes | unmeasured |
+|:--|--:|--:|--:|
+| push (published) | **10** | 43 | 2 |
+| norm | **1** | 52 | 2 |
+| clamp | **2** | 51 | 2 |
+
+**Reading — the "fix instead of push" hypothesis is refuted under this criterion.** Norm-preserving and
+projection-clamping do **not** raise the survivor rate; they lower it. The mechanism is visible in the
+per-axis data: `norm`/`clamp` collapse luminance (e.g. `z_aisle_width` from 0.453/0.248 down to 0.072 at
+the top strength; `z_shadow_hardness` to 0.003) while `push` keeps the frame lit. With an axis that is
+large relative to the activation, preserving the norm after the addition does not remove the wash — it
+keeps the frame in the dark. One axis (`z_pro_mist_diffusion`) is the exception: its baseline contrast
+is inverted (CLIP = -0.29), and clamp is the only mode that resolves it.
+
+**Step window.** Applying `push` only in the last 40% of the schedule moves the frame less: on
+`z_aisle_width` at the same strength, luminance 0.404 -> 0.275 and edge 0.0227 -> 0.0297 (structure is
+better preserved), but it does not rescue a bad direction (`z_shadow_hardness` still washes). So "when"
+is a real, cheap lever — not a fix for a broken axis.
+
+Raw data: [`data/axis-labels.json`](data/axis-labels.json). Images: the per-axis renders live in
+`~/HAL-archive/measurements/evolution-window/20261019/` (outside git).

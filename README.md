@@ -197,6 +197,7 @@ The shipped axes record `safe_max: 0.3`, and `HelmApply` clamps any strength pas
 - **Two models measured.** H3 (t2v) and Z-Image. LTX-2.3, Krea2 and Flux are wired but **not** execution-validated; their calibration entries are `null`/`tested: false` and no claim rests on them.
 - **The axes are low-level directions, not concepts.** Pushed far enough they wash the frame out; the wash is the signature of leaving the model's manifold, not a feature.
 - **One baseline measured.** Helm vs prompt-only (`ConditioningAverage`) is measured in §4 / `docs/EXPERIMENTS.md` §E (one model, one contrast pair, two seeds). A **LoRA baseline is not measured**.
+- **Norm-preserving and projection-clamping did not help (measured).** On the 55-axis bench with a pre-registered criterion, `push` holds 10/53 axes, `norm` 1/53 and `clamp` 2/53: both alternatives collapse luminance instead of removing the wash. The step window is a partial mitigation, not a fix. Details: `docs/EXPERIMENTS.md` §F.
 - **What is measured is content and geometry proxies** (CLIP empty-room score, saturation, edge density) on one contrast pair per model. Subject identity, camera movement and lighting are **not** measured.
 - **Axis scale is model-specific.** The H3 wash-out onset (~0.45 at axis norm ~3000) is not comparable to the Z-Image band (norm ~19), which is why the calibration table lists them separately.
 - **Custom nodes only.** Comfy Cloud does not install custom nodes, so Helm runs on local or self-hosted ComfyUI.

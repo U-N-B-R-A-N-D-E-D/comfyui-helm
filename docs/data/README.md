@@ -19,3 +19,6 @@ Do not infer labels from `cos`: the hypothesis that cosine predicts survival is 
   (baseline seed 11/23, Helm 0.5/1.0, mix 0.9/0.8/0.7/0.5/0.3). Submit them with the
   pod-manager (`POST /generate-async`) against a Z-Image-Turbo install; the axis is
   `example_axes/z_room_density.safetensors`.
+
+- `axis-labels.json` — the pre-registered holds/washes labels for the 55 dosed axes under
+  `push`/`norm`/`clamp` (2026-10-19), with the per-strength CLIP/sat/edge/lum numbers.

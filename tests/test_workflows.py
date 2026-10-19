@@ -1,4 +1,4 @@
-"""Example workflows parse, Helm widget shapes match the frozen order, H3 chain 901 -> 902."""
+"""Example workflows parse, Helm widget shapes match the frozen order, H3 chain 901 -> 902, and every shipped file satisfies the pack's INPUT_TYPES()."""
 import glob
 import json
 import numbers
@@ -69,6 +69,53 @@ def test_helm_widget_shapes(helm):
                     assert isinstance(value, typ), f"{cls}.{name}: {value!r} is not {typ.__name__}"
             checked += 1
     assert checked > 0, "no Helm nodes found in any workflow"
+
+
+def test_helm_class_types_exist_in_mappings(helm):
+    """Every Helm node in every shipped file names a class registered in NODE_CLASS_MAPPINGS
+    (missing keys = exporting a graph against a drifted/renamed node list)."""
+    checked = 0
+    for path in _workflow_files(helm.pack):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for cls, node in _iter_helm_objs(data):
+            assert cls in helm.nodes.NODE_CLASS_MAPPINGS, (
+                f"{os.path.basename(path)}: unknown Helm class {cls} (id {node.get('id', '?')})"
+            )
+            checked += 1
+    assert checked > 0, "no Helm nodes found in any workflow"
+
+
+def _is_api_format(data):
+    # API format: top-level keys are node ids, values carry `class_type`; UI graphs use "type".
+    return isinstance(data, dict) and any(
+        isinstance(v, dict) and "class_type" in v for v in data.values()
+    )
+
+
+def test_api_helm_nodes_satisfy_required_inputs(helm):
+    """Every API-format Helm node supplies each required INPUT_TYPES key; ComfyUI rejects the
+    prompt with `required_input_missing` otherwise (`model` is a MODEL link, not a widget value)."""
+    checked = 0
+    for path in _workflow_files(helm.pack):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not _is_api_format(data):
+            continue
+        for nid, node in data.items():
+            if not (isinstance(node, dict) and str(node.get("class_type", "")).startswith("Helm")):
+                continue
+            cls = node["class_type"]
+            # `model` is a MODEL link, not a widget value; skip it like WIDGET_ORDER does.
+            required = {k: v for k, v in helm.nodes.NODE_CLASS_MAPPINGS[cls].INPUT_TYPES()["required"].items()
+                        if v[0] != "MODEL"}
+            for key in required:
+                assert key in node["inputs"], (
+                    f"{os.path.basename(path)} node {nid} ({cls}): missing required input '{key}' "
+                    f"-> ComfyUI would reject this prompt with required_input_missing"
+                )
+            checked += 1
+    assert checked > 0, "no API-format workflow files found"
 
 
 def test_h3_t2v_chains_two_helmapply(helm):

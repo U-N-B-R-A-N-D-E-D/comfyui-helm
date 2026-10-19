@@ -133,7 +133,8 @@ def main():
         if entry["axis"]:
             wf.set_input(entry["node_id"], "axis", entry["axis"])
 
-    print(f"submitting {args.workflow} ({len(plan)} Helm slider(s), strength={args.strength})")
+    sliders = ", ".join(f"{e['axis']}={e['strength']}" for e in plan)
+    print(f"submitting {args.workflow} ({len(plan)} Helm slider(s), sliders={sliders})")
     job = client.run(wf)
     for out in job.outputs:
         if out.type in ("video", "image", "audio"):

@@ -1,0 +1,134 @@
+{
+ "30": {
+  "class_type": "CLIPLoader",
+  "inputs": {
+   "clip_name": "qwen_3_4b.safetensors",
+   "type": "lumina2",
+   "device": "default"
+  }
+ },
+ "29": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "vae_name": "ae.safetensors"
+  }
+ },
+ "28": {
+  "class_type": "UNETLoader",
+  "inputs": {
+   "unet_name": "z_image_turbo_bf16.safetensors",
+   "weight_dtype": "default"
+  }
+ },
+ "11": {
+  "class_type": "ModelSamplingAuraFlow",
+  "inputs": {
+   "model": [
+    "28",
+    0
+   ],
+   "shift": 3.0
+  }
+ },
+ "13": {
+  "class_type": "EmptySD3LatentImage",
+  "inputs": {
+   "width": 1024,
+   "height": 1024,
+   "batch_size": 1
+  }
+ },
+ "27": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "text": "the same room packed with server racks, cables and crates, documentary photography",
+   "clip": [
+    "30",
+    0
+   ]
+  }
+ },
+ "33": {
+  "class_type": "ConditioningZeroOut",
+  "inputs": {
+   "conditioning": [
+    "27",
+    0
+   ]
+  }
+ },
+ "3": {
+  "class_type": "KSampler",
+  "inputs": {
+   "seed": 11,
+   "steps": 8,
+   "cfg": 1.0,
+   "sampler_name": "res_multistep",
+   "scheduler": "simple",
+   "denoise": 1.0,
+   "model": [
+    "11",
+    0
+   ],
+   "positive": [
+    "35",
+    0
+   ],
+   "negative": [
+    "33",
+    0
+   ],
+   "latent_image": [
+    "13",
+    0
+   ]
+  }
+ },
+ "8": {
+  "class_type": "VAEDecode",
+  "inputs": {
+   "samples": [
+    "3",
+    0
+   ],
+   "vae": [
+    "29",
+    0
+   ]
+  }
+ },
+ "9": {
+  "class_type": "SaveImage",
+  "inputs": {
+   "filename_prefix": "bench2/mix08_s11",
+   "images": [
+    "8",
+    0
+   ]
+  }
+ },
+ "34": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "text": "an empty room with a window and a bare floor, documentary photography",
+   "clip": [
+    "30",
+    0
+   ]
+  }
+ },
+ "35": {
+  "class_type": "ConditioningAverage",
+  "inputs": {
+   "conditioning_to": [
+    "27",
+    0
+   ],
+   "conditioning_from": [
+    "34",
+    0
+   ],
+   "conditioning_to_strength": 0.8
+  }
+ }
+}

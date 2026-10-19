@@ -695,8 +695,7 @@ class HelmApply:
         mp = model.clone()
         entry = _calib_for(mp)
         fn = _make_apply_hook(vec, strength, axis, cond_only, meta_path,
-                              mode=mode, token_mask=token_mask, clamp_k=clamp_k,
-                              debug=bool(os.environ.get("HELM_DEBUG_SHAPE")))
+                              mode=mode, token_mask=token_mask, clamp_k=clamp_k, debug=True)
         _add_hook(mp, {"block": int(block), "fn": fn, "cond_only": bool(cond_only),
                        "start": float(start_percent), "end": float(end_percent)})
         _install_wrapper(mp)

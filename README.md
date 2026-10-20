@@ -154,6 +154,8 @@ What Helm adds is deliberately narrow and testable: **no training and no adapter
 
 ## Measured Science (Not Vibes)
 
+**In one line:** 78 captured, 55 dosed, **53 labelled**; **10/53** hold under the pre-registered criterion and **7/53** with the post-hoc ceiling — the video's **7-10 of 53**.
+
 ### 1. Monotonic Dose-Response & Seed Replication
 
 ![density axis dose-response](docs/images/dose_response.png)

@@ -2,9 +2,10 @@
 
 Per-render provenance for the fix-vs-push window (Z-Image, seed 11).
 
-- `renders.jsonl` — one line per job (384): `job_id`, `stage` (`sweep`/`window`/`where`), `axis`,
-  `mode`, `strength`, `status`, the output `sha256`, the graph `sha256`, and the sidecar path.
-  381 rendered; the 3 `where` demos were refused (`mask covers 4096, block has 4128`).
+- `renders.jsonl` — one line per job (385): `job_id`, `stage` (`sweep`/`window`/`where`/`base`),
+  `axis`, `mode`, `strength`, `status`, the output `sha256`, the graph `sha256`, and the sidecar path.
+  All 385 rendered: 384 window jobs + 1 unsteered baseline used to measure the `where` demos. The
+  three `where` jobs pass `mask_offset=32` (Z-Image: 32 text/cond rows + 4096 spatial = 4128).
 - `renders.summary.json` — counts, the pre-registered criterion, hashes of the batch manifest and the
   labels, and the pack/HAL commits.
 

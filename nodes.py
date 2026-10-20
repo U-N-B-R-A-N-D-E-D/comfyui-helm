@@ -667,7 +667,7 @@ class HelmApply:
             "layout": (["none", "h_w", "t_h_w", "h_w_t"], {"default": "none",
                      "tooltip": "token order of the block output. h_w = image; t_h_w = frame-major video; h_w_t = frame-inner. Never guessed: the mask is refused if the grid does not multiply to the token count."}),
             "grid": ("STRING", {"default": "",
-                     "tooltip": "explicit H,W (image) or H,W,T (video). Empty is only allowed for h_w, where a square is inferred."}),
+                     "tooltip": "explicit H,W (image) or H,W,T (video). Required whenever a mask is given; the grid is never inferred."}),
             "clamp_k": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 10.0, "step": 0.1,
                      "tooltip": "clamp mode only: projection limit as a multiple of each token's norm."}),
             "mask_offset": ("INT", {"default": 0, "min": 0, "max": 1000000, "step": 1,

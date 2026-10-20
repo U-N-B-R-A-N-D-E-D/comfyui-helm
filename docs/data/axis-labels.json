@@ -2,7 +2,12 @@
  "criterion": {
   "monotone_clip": true,
   "edge_min_ratio": 0.5,
-  "lum_max_delta": 0.2
+  "lum_max_delta": 0.2,
+  "strict": {
+   "sat_max": 0.5,
+   "edge_max_x_baseline": 2.0,
+   "note": "Post-hoc quality ceiling; the primary pre-registered labels are unchanged."
+  }
  },
  "axes": {
   "z_aisle_width": {
@@ -93,7 +98,8 @@
     "push": "holds",
     "norm": "washes",
     "clamp": "washes"
-   }
+   },
+   "strict_push": "holds"
   },
   "z_artificial_light_bursts": {
    "baseline": {
@@ -633,7 +639,8 @@
     "push": "holds",
     "norm": "washes",
     "clamp": "washes"
-   }
+   },
+   "strict_push": "holds"
   },
   "z_figure_ground_separation": {
    "baseline": {
@@ -1962,7 +1969,8 @@
     "push": "holds",
     "norm": "washes",
     "clamp": "washes"
-   }
+   },
+   "strict_push": "holds"
   },
   "z_motion_blur_intensity": {
    "baseline": {
@@ -2232,7 +2240,8 @@
     "push": "holds",
     "norm": "washes",
     "clamp": "washes"
-   }
+   },
+   "strict_push": "holds"
   },
   "z_perspective_convergence": {
    "baseline": {
@@ -2592,7 +2601,8 @@
     "push": "holds",
     "norm": "washes",
     "clamp": "washes"
-   }
+   },
+   "strict_push": "holds"
   },
   "z_refraction_focus": {
    "baseline": {
@@ -2931,7 +2941,8 @@
     "push": "holds",
     "norm": "holds",
     "clamp": "holds"
-   }
+   },
+   "strict_push": "washes"
   },
   "z_sensor_noise_iso": {
    "baseline": {
@@ -3651,7 +3662,8 @@
     "push": "holds",
     "norm": "washes",
     "clamp": "washes"
-   }
+   },
+   "strict_push": "washes"
   },
   "z_specular_reflection_intensity": {
    "baseline": {
@@ -3741,7 +3753,8 @@
     "push": "holds",
     "norm": "washes",
     "clamp": "washes"
-   }
+   },
+   "strict_push": "washes"
   },
   "z_subject_scale": {
    "baseline": {
@@ -4191,7 +4204,8 @@
     "push": "holds",
     "norm": "washes",
     "clamp": "washes"
-   }
+   },
+   "strict_push": "holds"
   },
   "z_symmetry": {
    "baseline": {
@@ -4641,7 +4655,8 @@
     "push": "holds",
     "norm": "washes",
     "clamp": "washes"
-   }
+   },
+   "strict_push": "holds"
   },
   "z_volumetric_scattering": {
    "baseline": {

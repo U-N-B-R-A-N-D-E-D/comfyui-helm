@@ -1,34 +1,33 @@
 # Roadmap
 
-Status: **0.3.8** released; `main` adds `mask_offset` (PRs #12/#13) and the
-2026-10-19 provenance index. 75 tests.
+Status: **0.3.9** pending publish (main adds `mask_offset` and the provenance
+index; 75 tests). Deadline: **2026-10-30, 09:00 PT**.
 
-## Next, in order
+## Now — what judges see first
 
-1. **Krea 2 calibration.** The pack wires Krea 2, but it is **not validated**.
-   Map its blocks, capture 1-2 axes, run a dose sweep under the same
-   pre-registered criterion, and record `safe_max`. Do not claim still-image
-   support before this.
-2. **H3 i2v template.** The shipped H3 API graph is t2v. Add and validate an i2v
-   graph; record the video-slice offset for masks (`seq - frames*h*w`).
-3. **Interaction measurements.** LoRA + Helm (including the H3 continuation
-   LoRA), `cfg=1`, `cond_only` on/off, cross-seed. Publish positives and
-   negatives with the same provenance.
-4. **Masks.** Documented as injection-only: the delta is zero outside the mask,
-   but attention propagates the visible change (>98% of outside pixels move in
-   the 2026-10-19 demos). Do not advertise spatial containment.
-5. **0.3.9 + registry.** Bump the version, retag, publish the registry entry,
-   and point the docs at the measured limits.
+1. **Consistency pass.** README reports the pre-registered **10/53** push holds
+   and the post-hoc **7/53** strict ceiling (saturation <= 0.5, edge <= 2x
+   baseline); the Z-Image room-density axis ships `safe_max 0.25` (wash at 0.5)
+   and its template uses 0.25; the grid tooltip matches the code; public docs no
+   longer point at private paths.
+2. **Publish 0.3.9 to the Comfy Registry.** This is the entry point to
+   ComfyUI-Manager and the community; the version and metadata are ready.
+3. **Video v32 + social post + submission.** Server-room spine: H3 `density`
+   (the measured band) and the Z-Image `specular` axis at 1.5 (clean at that
+   strength). One line on why it is different: a ~22 KB direction, no training,
+   no extra sampling, measured negatives published.
+4. **Submit** with `#OpenSourceHiggsfield`, ideally before the build nights on
+   Oct 28-29.
 
-## Measured (2026-10-19, Z-Image, 55 axes)
+## Next — research (after submission)
 
-- `push` 10/53 holds, `norm` 1/53, `clamp` 2/53 under the pre-registered
-  criterion; norm/clamp collapse luminance.
-- Step window (`start=0.6`) is a partial mitigation, not a fix.
-- Z-Image: 4128 tokens = 32 packed + 4096 spatial (`mask_offset=32`).
-- H3: packed `[text|cond|audio|video]`, video order `t,h,w`.
-- 385/385 jobs rendered with per-render sidecars and graph hashes.
+5. **Krea 2 calibration** (blocks + dose; gate: >= 2 axes hold, else the still
+   stays without Helm).
+6. **H3 i2v API template** (the pack ships t2v).
+7. **Interactions and ceilings:** LoRA + Helm, `cfg=1`, `cond_only`, cross-seed,
+   and a saturation/edge ceiling per model (the post-hoc check above is a first
+   step, not a law).
 
-Evidence: [`EXPERIMENTS.md`](EXPERIMENTS.md) §F,
-[`data/evolution-20261019/`](data/evolution-20261019/),
-[`data/axis-labels.json`](data/axis-labels.json).
+Measured evidence: [`EXPERIMENTS.md`](EXPERIMENTS.md) §F,
+[`data/axis-labels.json`](data/axis-labels.json),
+[`data/evolution-20261019/`](data/evolution-20261019/).

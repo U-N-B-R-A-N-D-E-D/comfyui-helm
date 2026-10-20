@@ -4,7 +4,7 @@
 
 ### **A prompt is a switch, not a dial. Helm gives you the dial.**
 
-A prompt can't do "a little": change one word and the whole frame changes; lengthen the prompt and it leaks into the scene; mix two prompts and nothing happens until the scene flips (the fair benchmark below). Helm reads a direction the model already knows and injects it with one scalar: same framing, graded, no training. **Steer what it knows. Train what it doesn't.**
+In practice, a prompt can't do "a little": change one word and the whole frame changes; lengthen the prompt and it leaks into the scene; mix two prompts and the room stays packed until the scene flips (the fair benchmark below). Helm reads a direction the model already knows and injects it with one scalar: same framing, graded, no training. **Steer what it knows. Train what it doesn't.**
 
 **Training-free activation steering for ComfyUI & the Comfy Developer Platform.**
 Extract a latent direction from two contrast passes into a **small `.safetensors` file** (the shipped `density` axis is 21,888 B, ~22 KB). Steer video and image DiTs with a single scalar. **Zero training. Zero weight modification. MIT-licensed.**

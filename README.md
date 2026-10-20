@@ -10,9 +10,9 @@ Extract a latent direction from two contrast passes into a **small `.safetensors
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Format: safetensors](https://img.shields.io/badge/axes-.safetensors-brightgreen.svg)](#how-it-works)
-[![Tests: 62 passed](https://img.shields.io/badge/tests-62%20passed-success.svg)](docs/HARDENING.md)
+[![Tests: 75 passed](https://img.shields.io/badge/tests-75%20passed-success.svg)](docs/HARDENING.md)
 
-[**Quickstart**](#quickstart-60-seconds) · [**How It Works**](#how-it-works) · [**Comfy SDK App**](#run-as-an-app-via-the-comfy-sdk) · [**Experiments (78 Axes)**](docs/EXPERIMENTS.md) · [**Hardening Log**](docs/HARDENING.md)
+[**Quickstart**](#quickstart-60-seconds) · [**How It Works**](#how-it-works) · [**Comfy SDK App**](#run-as-an-app-via-the-comfy-sdk) · [**Experiments (78 Axes)**](docs/EXPERIMENTS.md) · [**Roadmap**](docs/ROADMAP.md) · [**Hardening Log**](docs/HARDENING.md)
 
 </div>
 

@@ -9,11 +9,11 @@ Per-render provenance for the fix-vs-push window (Z-Image, seed 11).
 - `renders.summary.json` — counts, the pre-registered criterion, hashes of the batch manifest and the
   labels, and the pack/HAL commits.
 
-The PNGs, the per-render `<name>.png.json` sidecars and the 384 API graphs live outside git at
-`~/HAL-archive/measurements/evolution-window/20261019/` (`images/evo/`, `graphs/`, `failures/`).
+The PNGs, the per-render `<name>.png.json` sidecars and the 384 API graphs live in the
+companion media archive (outside git): `images/evo/`, `graphs/`, `failures/`.
 The verdicts and per-strength metrics are in [`../axis-labels.json`](../axis-labels.json).
 
-Regenerate the index from the archived batch (in `~/HAL/integrations/comfyui-steer-h3`):
+Regenerate the index from the archived batch with the sidecar writer (schema `helm.render/1`):
 
 ```sh
 python3 video/write_render_sidecars.py

@@ -226,6 +226,18 @@ large relative to the activation, preserving the norm after the addition does no
 keeps the frame in the dark. One axis (`z_pro_mist_diffusion`) is the exception: its baseline contrast
 is inverted (CLIP = -0.29), and clamp is the only mode that resolves it.
 
+**Post-hoc quality ceiling (not part of the pre-registered criterion).** The primary labels have
+no upper bound on saturation or edge density, so a blown-out frame can still pass. Applying an
+explicit ceiling (saturation <= 0.5 and edge density <= 2x the unsteered baseline) to the same three
+strengths leaves **7/53** push holds: `z_aisle_width`, `z_corridor_orientation`, `z_motion_blur`,
+`z_overcast_vs_direct`, `z_raking_light_angle`, `z_surface_reflection_intensity`,
+`z_volumetric_beams`. The three primary survivors it excludes are
+`z_saturated_vs_muted_stock`, `z_specular_reflection_density` and
+`z_specular_reflection_intensity` (their top dose blows the edge/sat ceiling). The pre-registered
+labels are unchanged; `strict_push` in `data/axis-labels.json` records this secondary check. The
+specular-density axis is clean at 1.5 (edge 1.6x baseline); its 4.44 top dose is not, so use the
+safe band.
+
 **Step window.** Applying `push` only in the last 40% of the schedule moves the frame less: on
 `z_aisle_width` at the same strength, luminance 0.404 -> 0.275 and edge 0.0227 -> 0.0297 (structure is
 better preserved), but it does not rescue a bad direction (`z_shadow_hardness` still washes). So "when"
@@ -237,7 +249,7 @@ is a real, cheap lever — not a fix for a broken axis.
 same size, prompt and seed, the change is stronger inside the mask (mean |delta| 0.17-0.25 vs
 0.10-0.18 outside; ratio 1.4-1.7) but **not confined**: >98% of outside pixels also move. The mask
 controls where the delta is injected; attention spreads the visible change. Raw: `where.json` in the
-archive (`~/HAL-archive/measurements/evolution-window/20261019/`).
+archive (the companion media archive (outside git; hashes in `data/evolution-20261019/renders.jsonl`)).
 
 Raw data: [`data/axis-labels.json`](data/axis-labels.json). Images: the per-axis renders live in
-`~/HAL-archive/measurements/evolution-window/20261019/` (outside git).
+the companion media archive (outside git; hashes in `data/evolution-20261019/renders.jsonl`) (outside git).

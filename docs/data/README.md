@@ -22,9 +22,11 @@ from `cos`: the hypothesis that cosine predicts survival is exactly what the 78-
 
 - `axis-labels.json` — the pre-registered holds/washes labels for the 55 dosed axes under
   `push`/`norm`/`clamp` (2026-10-19), with the per-strength CLIP/sat/edge/lum numbers.
+  It also carries `strict_push` — a post-hoc ceiling (saturation <= 0.5, edge <= 2x baseline):
+  **7/53** push holds (primary 10/53). The primary labels are unchanged.
 
 - `evolution-20261019/` — per-render provenance for that window: `renders.jsonl` (385 jobs: the
   384-job window + one unsteered baseline) with each output's `sha256` and graph `sha256`, plus
   `renders.summary.json`.
   The images and per-render sidecars live in
-  `~/HAL-archive/measurements/evolution-window/20261019/` (outside git).
+  the companion media archive (outside git; hashes in `evolution-20261019/renders.jsonl`).

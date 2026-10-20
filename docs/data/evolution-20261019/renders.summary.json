@@ -1,0 +1,38 @@
+{
+ "schema": "helm.render-index/1",
+ "generated_at": "2026-10-20T01:02:26Z",
+ "model": "z-image",
+ "seed": 11,
+ "block": -1,
+ "criterion": {
+  "monotone_clip": true,
+  "edge_min_ratio": 0.5,
+  "lum_max_delta": 0.2
+ },
+ "jobs": 385,
+ "done": 385,
+ "failed": 0,
+ "by_stage": {
+  "sweep": {
+   "done": 326,
+   "failed": 0
+  },
+  "window": {
+   "done": 55,
+   "failed": 0
+  },
+  "where": {
+   "done": 3,
+   "failed": 0
+  },
+  "base": {
+   "done": 1,
+   "failed": 0
+  }
+ },
+ "batch_manifest_sha256": "96a1e8e5ee06c67f7bcdcfd5af5475af5ef2e7edb6a5cf6000c9d9f8e876d19f",
+ "labels_sha256": "70c859fd0cb992ba3e7dac39bd5d20c02f91c1f84f89d8508afc3b7c4f1bdecb",
+ "graphs": 385,
+ "pack_commit": "b555cc5505ff1ce4482f96935463542fe0e4e86c",
+ "hal_commit": "cb4d7d7c3bbec31f531538b0f21b2e4d1dabf141"
+}

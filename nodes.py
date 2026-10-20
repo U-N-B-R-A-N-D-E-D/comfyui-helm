@@ -378,8 +378,30 @@ def _load_mask(path, h, w):
     return np.asarray(im, dtype="float32") / 255.0 > 0.5
 
 
+def _apply_token_mask(d, x, tm, offset=0):
+    """Pure. Place a [n] token mask after `offset` leading tokens and apply it to the delta.
+
+    Z-Image packs 32 extra rows before the 4096 spatial tokens; H3 packs
+    [text | cond | audio | video], so a video mask needs the offset of the video slice.
+    """
+    seq = x.shape[1] if x.dim() == 3 else x.shape[0]
+    n = int(tm.shape[1])
+    offset = int(offset)
+    if offset < 0:
+        raise ValueError(f"mask_offset must be >= 0 (got {offset})")
+    if offset + n != seq:
+        raise RuntimeError(
+            f"mask covers {n} tokens + offset {offset} = {offset + n}, block has {seq}; "
+            f"grid/layout/mask_offset does not match this model")
+    full = torch.zeros(seq, 1, dtype=tm.dtype, device=tm.device)
+    full[offset:offset + n] = tm.reshape(n, 1)
+    if x.dim() == 3:
+        full = full.unsqueeze(0)
+    return d * full.to(device=x.device, dtype=x.dtype)
+
+
 def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path,
-                     mode="push", token_mask=None, clamp_k=1.0, debug=False):
+                     mode="push", token_mask=None, clamp_k=1.0, debug=False, mask_offset=0):
     unit = None
     if mode == "clamp":
         v = vec / (vec.norm() + 1e-8)
@@ -394,7 +416,8 @@ def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path,
                 f"this axis was built for a different model (see {meta_path})")
         if debug and not logged["once"]:
             print(f"[helm] shape debug: block={type(m).__name__} out={tuple(out.shape) if hasattr(out, 'shape') else 'tuple'} "
-                  f"x={tuple(x.shape)} seq={int(x.shape[1]) if x.dim() == 3 else '?'} mode={mode}")
+                  f"x={tuple(x.shape)} seq={int(x.shape[1]) if x.dim() == 3 else int(x.shape[0]) if x.dim() == 2 else '?'} "
+                  f"dim={int(x.shape[-1])} mode={mode} mask_offset={mask_offset}")
             logged["once"] = True
         d = vec.to(x.dtype).to(x.device) * strength
         if cond_only and flags is not None:
@@ -402,10 +425,7 @@ def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path,
         if token_mask is not None:
             m2d, mlayout, mframes = token_mask
             tm = _token_mask(m2d, mlayout, mframes)
-            if tm.shape[1] != x.shape[1]:
-                raise RuntimeError(f"mask covers {tm.shape[1]} tokens, block has {x.shape[1]}; "
-                                   f"grid/layout does not match this model")
-            d = d * tm.to(device=x.device, dtype=x.dtype)
+            d = _apply_token_mask(d, x, tm, mask_offset)
         u = unit.to(x.dtype).to(x.device) if unit is not None else None
         y = _steer(x, d, u, mode=mode, clamp_k=clamp_k)
         if slot is None:
@@ -650,6 +670,8 @@ class HelmApply:
                      "tooltip": "explicit H,W (image) or H,W,T (video). Empty is only allowed for h_w, where a square is inferred."}),
             "clamp_k": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 10.0, "step": 0.1,
                      "tooltip": "clamp mode only: projection limit as a multiple of each token's norm."}),
+            "mask_offset": ("INT", {"default": 0, "min": 0, "max": 1000000, "step": 1,
+                     "tooltip": "leading packed tokens to skip before the mask. Z-Image packs 32 text/cond rows before the 4096 spatial tokens; H3 packs [text|cond|audio|video], so pass the row count before the video slice. Requires mask."}),
         }}
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("model",)
@@ -657,7 +679,7 @@ class HelmApply:
     CATEGORY = "Helm"
 
     def run(self, model, axis, block, strength, dial=0.0, cond_only=False, start_percent=0.0, end_percent=1.0,
-            mode="push", mask="", layout="none", grid="", clamp_k=1.0):
+            mode="push", mask="", layout="none", grid="", clamp_k=1.0, mask_offset=0):
         path = _resolve_axis(axis)
         vec = _load_axis(path)
         meta = _read_meta(axis) or {}
@@ -690,12 +712,15 @@ class HelmApply:
                 raise ValueError("mask given without grid; pass grid=H,W (image) or H,W,T (video) — Helm does not guess the token layout")
             gh, gw, gf = _parse_grid(grid)
             token_mask = (_load_mask(mask, gh, gw), layout, gf)
-            print(f"[helm] mask={mask} layout={layout} grid={gh}x{gw}x{gf}")
+            print(f"[helm] mask={mask} layout={layout} grid={gh}x{gw}x{gf} mask_offset={int(mask_offset)}")
+        elif int(mask_offset):
+            raise ValueError("mask_offset given without mask")
 
         mp = model.clone()
         entry = _calib_for(mp)
         fn = _make_apply_hook(vec, strength, axis, cond_only, meta_path,
-                              mode=mode, token_mask=token_mask, clamp_k=clamp_k, debug=True)
+                              mode=mode, token_mask=token_mask, clamp_k=clamp_k, debug=True,
+                              mask_offset=int(mask_offset))
         _add_hook(mp, {"block": int(block), "fn": fn, "cond_only": bool(cond_only),
                        "start": float(start_percent), "end": float(end_percent)})
         _install_wrapper(mp)

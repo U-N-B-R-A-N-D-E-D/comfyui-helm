@@ -92,3 +92,44 @@ def test_hook_applies_the_mask_to_the_delta_only():
     assert y[0, 1].tolist() == [0.0] * 8
     assert y[0, 2].tolist() == [1.0] * 8
     assert y[0, 3].tolist() == [0.0] * 8
+
+
+def test_mask_offset_skips_the_leading_packed_tokens():
+    x = torch.zeros(1, 6, 4)
+    vec = torch.ones(4)
+    mask = torch.tensor([[1.0, 0.0, 1.0, 0.0]])
+    fn = nodes._make_apply_hook(vec, 1.0, "t", False, "meta", mode="push",
+                                token_mask=(mask, "h_w", 1), mask_offset=2)
+    y = fn(object(), (), x)
+    assert y[0, 0].tolist() == [0.0] * 4
+    assert y[0, 1].tolist() == [0.0] * 4
+    assert y[0, 2].tolist() == [1.0] * 4
+    assert y[0, 3].tolist() == [0.0] * 4
+    assert y[0, 4].tolist() == [1.0] * 4
+    assert y[0, 5].tolist() == [0.0] * 4
+
+
+def test_mask_offset_on_a_packed_2d_block():
+    x = torch.zeros(5, 3)
+    vec = torch.ones(3)
+    mask = torch.tensor([[1.0, 0.0]])
+    fn = nodes._make_apply_hook(vec, 1.0, "t", False, "meta", mode="push",
+                                token_mask=(mask, "h_w", 1), mask_offset=3)
+    y = fn(object(), (), x)
+    assert y.shape == x.shape
+    assert y[3].tolist() == [1.0, 1.0, 1.0]
+    assert y[4].tolist() == [0.0, 0.0, 0.0]
+
+
+def test_mask_offset_mismatch_is_refused():
+    x = torch.zeros(1, 6, 4)
+    vec = torch.ones(4)
+    mask = torch.tensor([[1.0, 0.0]])
+    fn = nodes._make_apply_hook(vec, 1.0, "t", False, "meta", mode="push",
+                                token_mask=(mask, "h_w", 1), mask_offset=2)
+    try:
+        fn(object(), (), x)
+    except RuntimeError as e:
+        assert "mask covers 2 tokens + offset 2 = 4" in str(e)
+    else:
+        raise AssertionError("a mismatched mask_offset must be refused")

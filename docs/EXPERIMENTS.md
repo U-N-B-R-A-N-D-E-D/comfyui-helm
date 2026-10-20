@@ -231,5 +231,13 @@ is inverted (CLIP = -0.29), and clamp is the only mode that resolves it.
 better preserved), but it does not rescue a bad direction (`z_shadow_hardness` still washes). So "when"
 is a real, cheap lever — not a fix for a broken axis.
 
+**Where (regional masks).** Z-Image packs 32 text/cond rows before its 4096 spatial tokens, so a
+64x64 mask needs `mask_offset=32` (4128 = 32 + 4096); without it the node refuses. Three 1024^2 demos
+(left/floor/center, norm 1.0, seed 11) render with the offset. Against an unsteered baseline at the
+same size, prompt and seed, the change is stronger inside the mask (mean |delta| 0.17-0.25 vs
+0.10-0.18 outside; ratio 1.4-1.7) but **not confined**: >98% of outside pixels also move. The mask
+controls where the delta is injected; attention spreads the visible change. Raw: `where.json` in the
+archive (`~/HAL-archive/measurements/evolution-window/20261019/`).
+
 Raw data: [`data/axis-labels.json`](data/axis-labels.json). Images: the per-axis renders live in
 `~/HAL-archive/measurements/evolution-window/20261019/` (outside git).

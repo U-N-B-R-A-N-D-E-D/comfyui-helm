@@ -31,7 +31,7 @@ Move a single slider during sampling and shift the scene along an internal direc
 
 ### One Axis. Any Scene.
 
-An axis is not tied to the prompt that created it. Capture a `mood` or `density` direction once (~21 KB or less as a `.safetensors` file), and dial it into portraits, landscapes, night exteriors, or architectural shots:
+An axis is not tied to the prompt that created it. Capture a `mood` or `density` direction once (~22 KB or less as a `.safetensors` file), and dial it into portraits, landscapes, night exteriors, or architectural shots:
 
 <p align="center">
   <img src="docs/images/one_axis_any_scene.png" alt="One axis applied across portrait, forest, city, and interior scenes" width="100%"/>
@@ -102,7 +102,7 @@ flowchart LR
     A["HelmCollect · tag=pos · Prompt A"] --> V["HelmVector"]
     B["HelmCollect · tag=neg · Prompt B"] --> V
   end
-  V -- "mean_pos - mean_neg" --> F["ComfyUI/user/steer/&lt;axis&gt;.safetensors<br/>(~21 KB + header metadata)"]
+  V -- "mean_pos - mean_neg" --> F["ComfyUI/user/steer/&lt;axis&gt;.safetensors<br/>(21,888 B + header metadata)"]
   F --> AP["2. HelmApply (block=-1 adopts the header block)"]
   M["MODEL Source<br/>(UNETLoader / H3 Director)"] --> AP
   AP -- "x + strength * axis" --> S["Sampler / Video Output"]
@@ -150,7 +150,7 @@ Activation steering for diffusion is not new, and we say so:
 - **CASteer** (Gaintseva et al., ICLR 2026, [arXiv:2503.09630](https://arxiv.org/abs/2503.09630)) — training-free steering vectors built by averaging cross-attention activations, for concept erasure in image diffusion.
 - **Concept Sliders** (Gandikota et al., ECCV 2024, [arXiv:2311.12092](https://arxiv.org/abs/2311.12092)) — interpretable sliders, but each one is a trained LoRA adaptor.
 
-What Helm adds is deliberately narrow and testable: **no training and no adapter** (a ~21 KB safetensors direction built from two passes at inference time), **on a video DiT** (MiniMax H3, not an image UNet), **inside ComfyUI** as a node pack with per-block calibration, a `safe_max` clamp and self-describing axes, and **published negative results** (the 78-axis sweep and the refuted predictor). We ran that comparison (fair design: both methods from the same starting prompt) — see §4 and `docs/EXPERIMENTS.md` §E. The mix is a scene switch; Helm is a graded change at the same framing.
+What Helm adds is deliberately narrow and testable: **no training and no adapter** (a ~22 KB safetensors direction built from two passes at inference time), **on a video DiT** (MiniMax H3, not an image UNet), **inside ComfyUI** as a node pack with per-block calibration, a `safe_max` clamp and self-describing axes, and **published negative results** (the 78-axis sweep and the refuted predictor). We ran that comparison (fair design: both methods from the same starting prompt) — see §4 and `docs/EXPERIMENTS.md` §E. The mix is a scene switch; Helm is a graded change at the same framing.
 
 ## Measured Science (Not Vibes)
 

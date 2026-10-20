@@ -88,7 +88,7 @@ one model's axis into another's space is untested and needs an alignment.
 noted in §B.
 
 **Infra note.** A first attempt over SSH was killed by the pod's **idle watchdog** (SSH is not
-counted as activity); the successful run went through the pod-manager's job path.
+counted as activity); the successful run went through a ComfyUI API job.
 
 ## Knobs not yet measured
 
@@ -252,4 +252,4 @@ controls where the delta is injected; attention spreads the visible change. Raw:
 archive (the companion media archive (outside git; hashes in `data/evolution-20261019/renders.jsonl`)).
 
 Raw data: [`data/axis-labels.json`](data/axis-labels.json). Images: the per-axis renders live in
-the companion media archive (outside git; hashes in `data/evolution-20261019/renders.jsonl`) (outside git).
+the companion media archive (outside git; hashes in `data/evolution-20261019/renders.jsonl`).

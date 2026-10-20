@@ -88,7 +88,7 @@ one model's axis into another's space is untested and needs an alignment.
 noted in §B.
 
 **Infra note.** A first attempt over SSH was killed by the pod's **idle watchdog** (SSH is not
-counted as activity); the successful run went through the pod-manager's job path.
+counted as activity); the successful run went through a ComfyUI API job.
 
 ## Knobs not yet measured
 
@@ -249,7 +249,7 @@ is a real, cheap lever — not a fix for a broken axis.
 same size, prompt and seed, the change is stronger inside the mask (mean |delta| 0.17-0.25 vs
 0.10-0.18 outside; ratio 1.4-1.7) but **not confined**: >98% of outside pixels also move. The mask
 controls where the delta is injected; attention spreads the visible change. Raw: `where.json` in the
-archive (the companion media archive (outside git; hashes in `data/evolution-20261019/renders.jsonl`)).
+companion media archive (outside git; hashes in `data/evolution-20261019/renders.jsonl`).
 
 Raw data: [`data/axis-labels.json`](data/axis-labels.json). Images: the per-axis renders live in
-the companion media archive (outside git; hashes in `data/evolution-20261019/renders.jsonl`) (outside git).
+the companion media archive (outside git; hashes in `data/evolution-20261019/renders.jsonl`).

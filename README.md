@@ -4,10 +4,10 @@
 
 ### **A prompt is a switch, not a dial. Helm gives you the dial.**
 
-Change one word and the whole frame changes; lengthen the prompt and it leaks into the scene; mix two prompts and nothing happens until the scene flips (the fair benchmark below). Helm reads a direction the model already knows and injects it with one scalar: same framing, graded, no training. **Steer what it knows. Train what it doesn't.**
+A prompt can't do "a little": change one word and the whole frame changes; lengthen the prompt and it leaks into the scene; mix two prompts and nothing happens until the scene flips (the fair benchmark below). Helm reads a direction the model already knows and injects it with one scalar: same framing, graded, no training. **Steer what it knows. Train what it doesn't.**
 
 **Training-free activation steering for ComfyUI & the Comfy Developer Platform.**
-Extract a latent direction from two contrast passes into a **small `.safetensors` file** (the shipped `density` axis is ~21 KB). Steer video and image DiTs with a single scalar. **Zero training. Zero weight modification. MIT-licensed.**
+Extract a latent direction from two contrast passes into a **small `.safetensors` file** (the shipped `density` axis is 21,888 B, ~22 KB). Steer video and image DiTs with a single scalar. **Zero training. Zero weight modification. MIT-licensed.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -169,7 +169,7 @@ At the same `strength = 0.30`, the `density` axis **drains** saturation (HSV sat
 ### 3. Cross-Architecture Reproduction & 78-Axis Stress Test
 
 - **Same contrast in a second architecture** (Z-Image / Lumina2, layers 9–21 of 30): the identical empty-vs-packed contrast reproduces monotonic content removal — edge density **0.018 → 0.001**. A "density" direction is not unique to H3's architecture; this is a same-effect result in two models, **not** vector transfer. [`docs/EXPERIMENTS.md` §C](docs/EXPERIMENTS.md#c-the-same-contrast-in-a-second-model-partial).
-- **78 directions measured on Z-Image — and killing our own predictor:** Under the pre-registered criterion, **10 of 53** dosed axes hold in `push` (43 wash, 2 unmeasured); a post-hoc ceiling (saturation <= 0.5 and edge <= 2x baseline) leaves **7 of 53**. The earlier "1 in 3" was a coarse summary and is superseded by the 2026-10-19 labels. The lowest survivor sits at **0.31** cosine alignment while a washed-out axis sits at **0.94** (cosine, not a separation score). At n=23 axes, cosine alignment with the mean activation appeared to predict usable axes perfectly. We scaled the test to n=78, watched the separation collapse, and **killed our own predictor hypothesis** rather than shipping a false filter — the numbers stay, the story goes. The table is in the repo: [`docs/data/zimage-78-axes.json`](docs/data/zimage-78-axes.json) (one row per axis: norm, cosine, and whether it was dosed) and [`docs/data/zimage-dose-response.json`](docs/data/zimage-dose-response.json) (163 dose points covering 55 of the 78 — the other 23 remain unmeasured).
+- **78 directions measured on Z-Image — and killing our own predictor:** Of 78 captured directions, 55 were dosed and 53 labelled. Under the pre-registered criterion, **10 of 53** hold in `push` (43 wash, 2 unmeasured); a post-hoc ceiling (saturation <= 0.5 and edge <= 2x baseline) leaves **7 of 53**. The earlier "1 in 3" was a coarse summary and is superseded by the 2026-10-19 labels. The lowest survivor sits at **0.31** cosine alignment while a washed-out axis sits at **0.94** (cosine, not a separation score). At n=23 axes, cosine alignment with the mean activation appeared to predict usable axes perfectly. We scaled the test to n=78, watched the separation collapse, and **killed our own predictor hypothesis** rather than shipping a false filter — the numbers stay, the story goes. The table is in the repo: [`docs/data/zimage-78-axes.json`](docs/data/zimage-78-axes.json) (one row per axis: norm, cosine, and whether it was dosed) and [`docs/data/zimage-dose-response.json`](docs/data/zimage-dose-response.json) (163 dose points covering 55 of the 78 — the other 23 remain unmeasured).
 
 ### 4. Not a Prompt Mixer (Measured, Fair Design)
 

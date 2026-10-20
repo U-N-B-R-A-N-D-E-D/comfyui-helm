@@ -88,7 +88,7 @@ Open ComfyUI's **Templates** browser, search **`helm`** (or drag a workflow from
 | **`ltx_t2v_helm.json`** | **LTX-2.3** (Video) | Official LTX blueprint wired with `HelmApply` (structural hook ready; `tested: false`). |
 | **`api/h3_t2v_helm_api.json`** | **Comfy SDK / API** | API-format workflow driven by `app/run_helm.py`. |
 
-Measured today: MiniMax H3 t2v (`mood`, `density`) and Z-Image. Krea2 templates are wired but not yet execution-validated; LTX ships with `tested: false` in `calibration.json` — none of these three are claimed as measured.
+Measured with Helm: MiniMax H3 t2v (`mood`, `density`) and Z-Image. The models used for generation elsewhere (Krea 2 stills, Qwen Image Edit, LTX/Flux tests) are **not** Helm-measured: Krea 2 templates are wired without a calibration entry, LTX ships `tested: false`, Qwen-Image/SD3 are refused by the tuple guard until declared/measured, and Flux is declared but has no dose. No Helm claim rests on them.
 
 ---
 
@@ -194,7 +194,7 @@ The shipped H3 axes record `safe_max: 0.3`; the shipped Z-Image room-density axi
 
 ## Limitations
 
-- **Two models measured.** H3 (t2v) and Z-Image. LTX-2.3, Krea2 and Flux are wired but **not** execution-validated; their calibration entries are `null`/`tested: false` and no claim rests on them.
+- **Two models measured *with Helm*.** H3 (t2v) and Z-Image — that is where an axis, a band and a dose were measured. The models used for generation elsewhere are **not** Helm-measured: Krea 2 (templates wired, no calibration entry), LTX-2.3 (`tested: false`), Flux (tuple slot declared, no dose), Qwen-Image/SD3 (tuple `(txt, img)` refused until declared/measured). No Helm claim rests on them.
 - **The axes are low-level directions, not concepts.** Pushed far enough they wash the frame out; the wash is the signature of leaving the model's manifold, not a feature.
 - **One baseline measured.** Helm vs prompt-only (`ConditioningAverage`) is measured in §4 / `docs/EXPERIMENTS.md` §E (one model, one contrast pair, two seeds). A **LoRA baseline is not measured**.
 - **The pre-registered criterion has no upper bound on saturation or edge density.** A post-hoc ceiling (saturation <= 0.5, edge <= 2x baseline) leaves **7/53** push holds; the 3 primary survivors it excludes are the saturated/specular axes at their top dose (`z_saturated_vs_muted_stock`, `z_specular_reflection_density`, `z_specular_reflection_intensity`). The primary labels are unchanged; `strict_push` is in `docs/data/axis-labels.json`.

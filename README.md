@@ -20,6 +20,14 @@ Extract a latent direction from two contrast passes into a **small `.safetensors
 
 ---
 
+<p align="center">
+  <a href="https://youtu.be/MxisBKxoDSQ">
+    <img src="https://img.youtube.com/vi/MxisBKxoDSQ/maxresdefault.jpg" alt="Watch the Helm demo — 47 seconds, measured, not vibes" width="100%"/>
+  </a>
+  <br/>
+  <sub><b>▶ Watch the 47s demo</b> — same prompt, same seed, one number changed.</sub>
+</p>
+
 ## Same Prompt. Same Seed. One Number Changed.
 
 Move a single slider during sampling and shift the scene along an internal direction the model already knows. On the measured H3 `density` pair the change is in the content while the room's floor line and ceiling stay put (the caption below is the honest version). **Identity and lighting preservation are not yet measured** — see [Limitations](#limitations).

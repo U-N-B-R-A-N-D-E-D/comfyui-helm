@@ -21,11 +21,12 @@ Extract a latent direction from two contrast passes into a **small `.safetensors
 ---
 
 <p align="center">
-  <a href="https://youtu.be/MxisBKxoDSQ">
-    <img src="https://img.youtube.com/vi/MxisBKxoDSQ/maxresdefault.jpg" alt="Watch the Helm demo — 47 seconds, measured, not vibes" width="100%"/>
+  <a href="https://youtu.be/MxisBKxoDSQ" title="Watch the Helm demo on YouTube">
+    <img src="docs/images/demo.jpg" alt="Helm demo — same prompt, same seed, one number changed" width="100%"/>
   </a>
-  <br/>
-  <sub><b>▶ Watch the 47s demo</b> — same prompt, same seed, one number changed.</sub>
+</p>
+<p align="center">
+  <a href="https://youtu.be/MxisBKxoDSQ"><b>▶ Watch the 47s demo on YouTube</b></a> — same prompt, same seed, one number changed.
 </p>
 
 ## Same Prompt. Same Seed. One Number Changed.

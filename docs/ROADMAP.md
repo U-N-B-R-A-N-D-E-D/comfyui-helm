@@ -1,7 +1,7 @@
 # Roadmap
 
-Status: **0.3.9** pending publish (main adds `mask_offset` and the provenance
-index; 75 tests). Deadline: **2026-10-30, 09:00 PT**.
+Status: **0.3.10** pending publish (publish-hygiene fix; 0.3.9 was
+flagged by a test-only false positive; 77 tests). Deadline: **2026-10-30, 09:00 PT**.
 
 ## Now — what judges see first
 
@@ -10,7 +10,7 @@ index; 75 tests). Deadline: **2026-10-30, 09:00 PT**.
    baseline); the Z-Image room-density axis ships `safe_max 0.25` (wash at 0.5)
    and its template uses 0.25; the grid tooltip matches the code; public docs no
    longer point at private paths.
-2. **Publish 0.3.9 to the Comfy Registry.** This is the entry point to
+2. **Publish 0.3.10 to the Comfy Registry.** This is the entry point to
    ComfyUI-Manager and the community; the version and metadata are ready.
 3. **Video v32 + social post + submission.** Server-room spine: H3 `density`
    (the measured band) and the Z-Image `specular` axis at 1.5 (clean at that

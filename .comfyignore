@@ -1,0 +1,20 @@
+# Development-only — never ship to the Comfy Registry
+tests/
+docs/
+study/
+.github/
+examples/
+.git/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+.venv/
+node.zip
+*.zip
+.DS_Store
+*.mp4
+*.mov
+*.webm
+.env
+.gitignore

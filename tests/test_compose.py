@@ -77,7 +77,7 @@ def test_two_chained_helmapply_both_change_output(helm):
 def test_add_hook_twice_composes(helm):
     nodes = helm.nodes
     dit = make_dit(dim=8, n=6)
-    mp = conftest.FakePatcher(__import__("types").SimpleNamespace(diffusion_model=dit))
+    mp = conftest.FakePatcher(types.SimpleNamespace(diffusion_model=dit))
 
     fn_a = nodes._make_apply_hook(torch.eye(8)[0], 0.5, "axA", False, "metaA")
     fn_b = nodes._make_apply_hook(torch.eye(8)[1], 0.5, "axB", False, "metaB")

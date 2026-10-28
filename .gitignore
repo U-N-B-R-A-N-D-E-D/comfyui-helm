@@ -1,4 +1,5 @@
 __pycache__/
+.venv/
 *.pyc
 
 # GitHub carries images only; the demo/before-after videos live outside the repo.
@@ -6,3 +7,6 @@ __pycache__/
 *.mov
 *.webm
 .env
+
+# Generated Registry artifacts
+node.zip

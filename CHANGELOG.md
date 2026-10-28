@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.10 — 2026-10-27
+
+- Publish hygiene: dev-only files (`tests/`, `docs/`, `study/`, `.github/`,
+  demo images) are excluded from the Registry package via `.comfyignore`.
+- Replaced a test-only dynamic-import call with a normal module reference.
+  It triggered a false-positive `python_bytecode_manipulation` flag; no runtime
+  code changed.
+- Added a publish-hygiene regression test so dev-only paths and dynamic imports
+  cannot silently return to the package.
+
 ## 0.3.9 — 2026-10-19
 
 - `HelmApply` gains optional `mask_offset` for packed sequences (Z-Image: 32

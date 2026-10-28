@@ -1,7 +1,7 @@
 # Roadmap
 
-Status: **0.3.10** published to the Registry, pending the automated scan
-(0.3.9 remains flagged by a test-only false positive; 77 tests). Deadline: **2026-10-30, 09:00 PT**.
+Status: **0.3.10** active in the Comfy Registry.
+(0.3.9 remains flagged by a test-only false positive; 77 tests.) Deadline: **2026-10-30, 09:00 PT**.
 
 ## Now — what judges see first
 

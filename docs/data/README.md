@@ -1,5 +1,7 @@
 # Data files
 
+The tidy, generated view of these files — `axes.csv`, `labels_long.csv`, the survival tables, nine charts and the 55-axis atlas — is in [`study/`](../../study/README.md). The JSON here remains the source of truth.
+
 - `zimage-78-axes.json` — the 78 Z-Image directions measured on 2026-10-18 (`axis`, `norm`, `cos`,
   `dosed`). `cos` is the cosine alignment with the mean activation, i.e. the feature the refuted
   predictor used — it is **not** a separation score.
@@ -17,7 +19,7 @@ from `cos`: the hypothesis that cosine predicts survival is exactly what the 78-
 
 - `bench2-graphs/` — the eight API graphs behind the fair prompt-mix benchmark
   (baseline seed 11/23, Helm 0.5/1.0, mix 0.9/0.8/0.7/0.5/0.3). Submit them with the
-  pod-manager (`POST /generate-async`) against a Z-Image-Turbo install; the axis is
+  a ComfyUI instance (its API) or the Comfy SDK against a Z-Image-Turbo install; the axis is
   `example_axes/z_room_density.safetensors`.
 
 - `axis-labels.json` — the pre-registered holds/washes labels for the 55 dosed axes under

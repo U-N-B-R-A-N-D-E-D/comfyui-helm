@@ -1,0 +1,6 @@
+stage,mode,jobs
+base,none,1
+sweep,clamp,163
+sweep,norm,163
+where,norm,3
+window,push,55

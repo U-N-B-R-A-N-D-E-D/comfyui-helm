@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helm — Axis Atlas</title>
+<style>
+:root {
+  --bg:#0a0a0a; --panel:#111113; --line:#232327; --ink:#ededed;
+  --muted:#9ca3af; --accent:#818cf8; --green:#22c55e; --red:#ef4444;
+  --gray:#6b7280; --light:#f59e0b; --camera:#38bdf8; --material:#a78bfa;
+  --atmosphere:#34d399; --geometry:#fb7185;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+header { padding:34px 28px 18px; border-bottom:1px solid var(--line); }
+h1 { margin:0 0 8px; font-size:clamp(24px,4vw,42px); letter-spacing:.16em; font-weight:600; }
+.sub { color:var(--muted); font-size:12px; line-height:1.7; max-width:820px; }
+.stats { display:flex; gap:22px; flex-wrap:wrap; margin-top:18px; font-size:12px; }
+.stat b { display:block; font-size:20px; letter-spacing:.04em; }
+.stat span { color:var(--muted); }
+.controls { position:sticky; top:0; z-index:5; background:rgba(10,10,10,.94); backdrop-filter:blur(8px); padding:14px 28px; border-bottom:1px solid var(--line); display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+input[type=search] { background:#151518; border:1px solid var(--line); color:var(--ink); padding:9px 12px; border-radius:7px; min-width:230px; font:inherit; }
+button, select { background:#151518; border:1px solid var(--line); color:var(--ink); padding:8px 11px; border-radius:7px; cursor:pointer; font:inherit; font-size:11px; }
+button.active { border-color:var(--accent); color:var(--accent); background:#1a1a2e; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:16px; padding:22px 28px 60px; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.thumb { width:100%; aspect-ratio:18/5; object-fit:cover; background:#17171a; display:block; }
+.body { padding:12px 13px 14px; }
+.title { display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+.title h2 { margin:0; font-size:13px; letter-spacing:.04em; }
+.badge { font-size:9px; padding:3px 6px; border-radius:99px; border:1px solid; white-space:nowrap; }
+.holds { color:var(--green); border-color:#14532d; background:#052e16; }
+.washes { color:var(--red); border-color:#7f1d1d; background:#2a0a0a; }
+.unmeasured { color:var(--gray); border-color:#374151; background:#111827; }
+.chips { display:flex; gap:6px; margin:8px 0 10px; flex-wrap:wrap; }
+.chip { font-size:9px; color:var(--muted); border:1px solid var(--line); padding:2px 6px; border-radius:99px; }
+.metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; font-size:10px; }
+.metrics span { color:var(--muted); display:block; font-size:8px; letter-spacing:.08em; }
+.metrics b { font-weight:500; }
+.light { color:var(--light); } .camera { color:var(--camera); }
+.material { color:var(--material); } .atmosphere { color:var(--atmosphere); }
+.geometry { color:var(--geometry); }
+footer { color:var(--muted); font-size:10px; padding:0 28px 40px; line-height:1.8; }
+a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>H E L M — AXIS ATLAS</h1>
+  <div class="sub">55 captured directions on Z-Image: 53 labelled, 2 unmeasured. Each card is the same prompt and seed at three <em>norm</em> strengths, plus the single <em>push</em> render available. The metrics use the top push dose. Green means the direction kept structure; red means it washed out. The numbers are in <a href="../data/axes.csv">axes.csv</a>; the method is in <a href="../README.md">the study README</a>.</div>
+  <div class="stats">
+    <div class="stat"><b>55</b><span>axes</span></div>
+    <div class="stat"><b>10</b><span>holds</span></div>
+    <div class="stat"><b>43</b><span>washes</span></div>
+    <div class="stat"><b>7</b><span>strict holds</span></div>
+    <div class="stat"><b>2</b><span>unmeasured</span></div>
+  </div>
+</header>
+<div class="controls">
+  <input id="q" type="search" placeholder="search axis…" autocomplete="off">
+  <button data-cat="all" class="active">all</button>
+  <button data-cat="light">light</button>
+  <button data-cat="camera">camera</button>
+  <button data-cat="material">material</button>
+  <button data-cat="atmosphere">atmosphere</button>
+  <button data-cat="geometry">geometry</button>
+  <button data-status="holds">holds</button>
+  <button data-status="washes">washes</button>
+  <button data-status="unmeasured">unmeasured</button>
+  <select id="sort">
+    <option value="category">sort: family</option>
+    <option value="clip">sort: ΔCLIP</option>
+    <option value="edge">sort: edge retained</option>
+    <option value="name">sort: name</option>
+  </select>
+</div>
+<main class="grid" id="grid"></main>
+<footer>
+  Source of truth: <code>docs/data/axis-labels.json</code>, <code>docs/data/zimage-78-axes.json</code> and the 385-job provenance index. Atlas generated by <code>study/src/build_study.py</code>. Images are outside git; thumbnails are derived from the media archive. Code MIT; labels and metadata CC BY 4.0.
+</footer>
+<script>
+const DATA = [{"axis": "z_artificial_light_bursts", "name": "artificial light bursts", "category": "light", "label": "washes", "strict": "", "cos": "0.7352", "clip_delta": "-0.0874", "edge_ratio": "0.033", "lum_delta": "0.488", "onset": "1.815", "strength": "7.2591", "monotone": "no", "thumb": "thumbs/z_artificial_light_bursts.webp"}, {"axis": "z_backlight_rim", "name": "backlight rim", "category": "light", "label": "washes", "strict": "", "cos": "0.4366", "clip_delta": "0.3166", "edge_ratio": "0.026", "lum_delta": "0.492", "onset": "0.845", "strength": "3.3802", "monotone": "no", "thumb": "thumbs/z_backlight_rim.webp"}, {"axis": "z_fluorescent_vs_tungsten", "name": "fluorescent vs tungsten", "category": "light", "label": "washes", "strict": "", "cos": "0.2443", "clip_delta": "0.0650", "edge_ratio": "0.067", "lum_delta": "0.223", "onset": "1.667", "strength": "3.3346", "monotone": "no", "thumb": "thumbs/z_fluorescent_vs_tungsten.webp"}, {"axis": "z_high_key_vs_low_key", "name": "high key vs low key", "category": "light", "label": "washes", "strict": "", "cos": "0.5038", "clip_delta": "-0.0127", "edge_ratio": "0.100", "lum_delta": "0.491", "onset": "0.322", "strength": "1.2880", "monotone": "yes", "thumb": "thumbs/z_high_key_vs_low_key.webp"}, {"axis": "z_lens_flare_intensity", "name": "lens flare intensity", "category": "light", "label": "washes", "strict": "", "cos": "0.7849", "clip_delta": "-0.2977", "edge_ratio": "0.496", "lum_delta": "0.404", "onset": "3.131", "strength": "6.2622", "monotone": "yes", "thumb": "thumbs/z_lens_flare_intensity.webp"}, {"axis": "z_light_source_position", "name": "light source position", "category": "light", "label": "washes", "strict": "", "cos": "0.6100", "clip_delta": "0.1250", "edge_ratio": "0.144", "lum_delta": "0.386", "onset": "3.380", "strength": "6.7603", "monotone": "no", "thumb": "thumbs/z_light_source_position.webp"}, {"axis": "z_mixed_color_sources", "name": "mixed color sources", "category": "light", "label": "washes", "strict": "", "cos": "0.8571", "clip_delta": "0.0810", "edge_ratio": "1.659", "lum_delta": "0.052", "onset": "", "strength": "1.3662", "monotone": "no", "thumb": "thumbs/z_mixed_color_sources.webp"}, {"axis": "z_night_practicals", "name": "night practicals", "category": "light", "label": "washes", "strict": "", "cos": "0.7252", "clip_delta": "1.1417", "edge_ratio": "0.039", "lum_delta": "0.424", "onset": "1.000", "strength": "1.9993", "monotone": "yes", "thumb": "thumbs/z_night_practicals.webp"}, {"axis": "z_prism_effect_intensity", "name": "prism effect intensity", "category": "light", "label": "washes", "strict": "", "cos": "0.2771", "clip_delta": "-0.9243", "edge_ratio": "0.024", "lum_delta": "0.487", "onset": "1.315", "strength": "5.2611", "monotone": "no", "thumb": "thumbs/z_prism_effect_intensity.webp"}, {"axis": "z_raking_light_angle", "name": "raking light angle", "category": "light", "label": "holds", "strict": "holds", "cos": "0.7882", "clip_delta": "0.1202", "edge_ratio": "0.673", "lum_delta": "0.196", "onset": "", "strength": "2.8064", "monotone": "yes", "thumb": "thumbs/z_raking_light_angle.webp"}, {"axis": "z_snow_light", "name": "snow light", "category": "light", "label": "washes", "strict": "", "cos": "0.2150", "clip_delta": "0.2182", "edge_ratio": "0.090", "lum_delta": "0.268", "onset": "2.508", "strength": "5.0163", "monotone": "no", "thumb": "thumbs/z_snow_light.webp"}, {"axis": "z_sun_angle", "name": "sun angle", "category": "light", "label": "washes", "strict": "", "cos": "0.6869", "clip_delta": "0.2465", "edge_ratio": "0.805", "lum_delta": "0.056", "onset": "", "strength": "5.0516", "monotone": "no", "thumb": "thumbs/z_sun_angle.webp"}, {"axis": "z_sun_direction", "name": "sun direction", "category": "light", "label": "washes", "strict": "", "cos": "0.4941", "clip_delta": "-0.1179", "edge_ratio": "1.801", "lum_delta": "0.120", "onset": "", "strength": "6.1204", "monotone": "no", "thumb": "thumbs/z_sun_direction.webp"}, {"axis": "z_sun_raking_angle", "name": "sun raking angle", "category": "light", "label": "washes", "strict": "", "cos": "0.9139", "clip_delta": "-0.1764", "edge_ratio": "0.415", "lum_delta": "0.382", "onset": "1.878", "strength": "3.7553", "monotone": "yes", "thumb": "thumbs/z_sun_raking_angle.webp"}, {"axis": "z_volumetric_beams", "name": "volumetric beams", "category": "light", "label": "holds", "strict": "holds", "cos": "0.9231", "clip_delta": "0.0757", "edge_ratio": "1.056", "lum_delta": "0.053", "onset": "", "strength": "2.0101", "monotone": "yes", "thumb": "thumbs/z_volumetric_beams.webp"}, {"axis": "z_window_vs_practicals", "name": "window vs practicals", "category": "light", "label": "washes", "strict": "", "cos": "0.6714", "clip_delta": "0.1834", "edge_ratio": "0.054", "lum_delta": "0.493", "onset": "0.558", "strength": "2.2307", "monotone": "no", "thumb": "thumbs/z_window_vs_practicals.webp"}, {"axis": "z_camera_motion_intensity", "name": "camera motion intensity", "category": "camera", "label": "washes", "strict": "", "cos": "0.2686", "clip_delta": "0.3890", "edge_ratio": "0.050", "lum_delta": "0.366", "onset": "1.304", "strength": "5.2166", "monotone": "no", "thumb": "thumbs/z_camera_motion_intensity.webp"}, {"axis": "z_figure_ground_separation", "name": "figure ground separation", "category": "camera", "label": "washes", "strict": "", "cos": "0.9145", "clip_delta": "-0.4350", "edge_ratio": "0.185", "lum_delta": "0.450", "onset": "0.805", "strength": "1.6097", "monotone": "yes", "thumb": "thumbs/z_figure_ground_separation.webp"}, {"axis": "z_foreground_occlusion", "name": "foreground occlusion", "category": "camera", "label": "washes", "strict": "", "cos": "0.9112", "clip_delta": "-0.0475", "edge_ratio": "0.412", "lum_delta": "0.213", "onset": "2.265", "strength": "2.2650", "monotone": "yes", "thumb": "thumbs/z_foreground_occlusion.webp"}, {"axis": "z_framing_angle", "name": "framing angle", "category": "camera", "label": "washes", "strict": "", "cos": "0.4665", "clip_delta": "-0.1049", "edge_ratio": "0.280", "lum_delta": "0.145", "onset": "3.380", "strength": "6.7594", "monotone": "yes", "thumb": "thumbs/z_framing_angle.webp"}, {"axis": "z_horizon_height", "name": "horizon height", "category": "camera", "label": "washes", "strict": "", "cos": "0.7953", "clip_delta": "0.1405", "edge_ratio": "0.370", "lum_delta": "0.284", "onset": "9.909", "strength": "9.9087", "monotone": "no", "thumb": "thumbs/z_horizon_height.webp"}, {"axis": "z_lens_distortion", "name": "lens distortion", "category": "camera", "label": "washes", "strict": "", "cos": "0.2618", "clip_delta": "-0.0398", "edge_ratio": "0.156", "lum_delta": "0.404", "onset": "2.789", "strength": "5.5775", "monotone": "no", "thumb": "thumbs/z_lens_distortion.webp"}, {"axis": "z_motion_blur", "name": "motion blur", "category": "camera", "label": "holds", "strict": "holds", "cos": "0.9815", "clip_delta": "-0.0537", "edge_ratio": "1.024", "lum_delta": "0.046", "onset": "", "strength": "0.4913", "monotone": "yes", "thumb": "thumbs/z_motion_blur.webp"}, {"axis": "z_motion_blur_intensity", "name": "motion blur intensity", "category": "camera", "label": "washes", "strict": "", "cos": "0.8243", "clip_delta": "0.1477", "edge_ratio": "0.615", "lum_delta": "0.263", "onset": "6.898", "strength": "6.8977", "monotone": "yes", "thumb": "thumbs/z_motion_blur_intensity.webp"}, {"axis": "z_perspective_convergence", "name": "perspective convergence", "category": "camera", "label": "washes", "strict": "", "cos": "0.9741", "clip_delta": "-0.0247", "edge_ratio": "0.744", "lum_delta": "0.226", "onset": "0.447", "strength": "0.4470", "monotone": "no", "thumb": "thumbs/z_perspective_convergence.webp"}, {"axis": "z_spatial_depth", "name": "spatial depth", "category": "camera", "label": "washes", "strict": "", "cos": "0.8898", "clip_delta": "0.3515", "edge_ratio": "0.901", "lum_delta": "0.343", "onset": "1.292", "strength": "1.2915", "monotone": "yes", "thumb": "thumbs/z_spatial_depth.webp"}, {"axis": "z_subject_scale", "name": "subject scale", "category": "camera", "label": "washes", "strict": "", "cos": "0.9148", "clip_delta": "0.0480", "edge_ratio": "0.899", "lum_delta": "0.137", "onset": "", "strength": "6.0221", "monotone": "no", "thumb": "thumbs/z_subject_scale.webp"}, {"axis": "z_symmetry", "name": "symmetry", "category": "camera", "label": "washes", "strict": "", "cos": "0.9822", "clip_delta": "0.1029", "edge_ratio": "1.065", "lum_delta": "0.053", "onset": "", "strength": "0.4965", "monotone": "no", "thumb": "thumbs/z_symmetry.webp"}, {"axis": "z_telephoto_compression", "name": "telephoto compression", "category": "camera", "label": "washes", "strict": "", "cos": "0.3703", "clip_delta": "0.8594", "edge_ratio": "0.050", "lum_delta": "0.420", "onset": "1.914", "strength": "3.8274", "monotone": "no", "thumb": "thumbs/z_telephoto_compression.webp"}, {"axis": "z_vanishing_point_position", "name": "vanishing point position", "category": "camera", "label": "washes", "strict": "", "cos": "0.9443", "clip_delta": "-0.1673", "edge_ratio": "0.295", "lum_delta": "0.360", "onset": "2.210", "strength": "4.4201", "monotone": "yes", "thumb": "thumbs/z_vanishing_point_position.webp"}, {"axis": "z_bw_film_stock", "name": "bw film stock", "category": "material", "label": "washes", "strict": "", "cos": "0.9744", "clip_delta": "0.0066", "edge_ratio": "1.230", "lum_delta": "0.052", "onset": "", "strength": "0.4963", "monotone": "no", "thumb": "thumbs/z_bw_film_stock.webp"}, {"axis": "z_film_grain", "name": "film grain", "category": "material", "label": "washes", "strict": "", "cos": "0.8768", "clip_delta": "0.1896", "edge_ratio": "0.123", "lum_delta": "0.458", "onset": "0.823", "strength": "1.6457", "monotone": "no", "thumb": "thumbs/z_film_grain.webp"}, {"axis": "z_matte_vs_glossy", "name": "matte vs glossy", "category": "material", "label": "unmeasured", "strict": "", "cos": "0.7497", "clip_delta": "-0.0258", "edge_ratio": "0.930", "lum_delta": "0.054", "onset": "", "strength": "5.6421", "monotone": "yes", "thumb": "thumbs/z_matte_vs_glossy.webp"}, {"axis": "z_refraction_focus", "name": "refraction focus", "category": "material", "label": "washes", "strict": "", "cos": "0.4081", "clip_delta": "-0.6146", "edge_ratio": "0.025", "lum_delta": "0.495", "onset": "1.043", "strength": "4.1721", "monotone": "yes", "thumb": "thumbs/z_refraction_focus.webp"}, {"axis": "z_refraction_index_shift", "name": "refraction index shift", "category": "material", "label": "unmeasured", "strict": "", "cos": "0.6785", "clip_delta": "0.0679", "edge_ratio": "0.875", "lum_delta": "0.004", "onset": "", "strength": "7.6650", "monotone": "yes", "thumb": "thumbs/z_refraction_index_shift.webp"}, {"axis": "z_saturated_vs_muted_stock", "name": "saturated vs muted stock", "category": "material", "label": "holds", "strict": "washes", "cos": "0.3097", "clip_delta": "1.9247", "edge_ratio": "1.755", "lum_delta": "0.169", "onset": "1.936", "strength": "1.9364", "monotone": "yes", "thumb": "thumbs/z_saturated_vs_muted_stock.webp"}, {"axis": "z_sensor_noise_iso", "name": "sensor noise iso", "category": "material", "label": "washes", "strict": "", "cos": "0.8570", "clip_delta": "0.3641", "edge_ratio": "1.614", "lum_delta": "0.255", "onset": "2.736", "strength": "2.7363", "monotone": "no", "thumb": "thumbs/z_sensor_noise_iso.webp"}, {"axis": "z_shading_intensity", "name": "shading intensity", "category": "material", "label": "washes", "strict": "", "cos": "0.5133", "clip_delta": "-0.6539", "edge_ratio": "0.158", "lum_delta": "0.491", "onset": "3.643", "strength": "7.2851", "monotone": "yes", "thumb": "thumbs/z_shading_intensity.webp"}, {"axis": "z_specular_reflection_density", "name": "specular reflection density", "category": "material", "label": "holds", "strict": "washes", "cos": "0.8488", "clip_delta": "0.1297", "edge_ratio": "3.528", "lum_delta": "0.036", "onset": "", "strength": "4.4417", "monotone": "yes", "thumb": "thumbs/z_specular_reflection_density.webp"}, {"axis": "z_specular_reflection_intensity", "name": "specular reflection intensity", "category": "material", "label": "holds", "strict": "washes", "cos": "0.3680", "clip_delta": "0.2106", "edge_ratio": "7.818", "lum_delta": "0.015", "onset": "6.327", "strength": "6.3267", "monotone": "yes", "thumb": "thumbs/z_specular_reflection_intensity.webp"}, {"axis": "z_surface_reflection_intensity", "name": "surface reflection intensity", "category": "material", "label": "holds", "strict": "holds", "cos": "0.8488", "clip_delta": "0.0389", "edge_ratio": "1.131", "lum_delta": "0.081", "onset": "", "strength": "3.0360", "monotone": "yes", "thumb": "thumbs/z_surface_reflection_intensity.webp"}, {"axis": "z_wet_vs_dry_reflectance", "name": "wet vs dry reflectance", "category": "material", "label": "washes", "strict": "", "cos": "0.7326", "clip_delta": "-0.0033", "edge_ratio": "0.433", "lum_delta": "0.450", "onset": "1.354", "strength": "2.7084", "monotone": "no", "thumb": "thumbs/z_wet_vs_dry_reflectance.webp"}, {"axis": "z_atmospheric_haze_density", "name": "atmospheric haze density", "category": "atmosphere", "label": "washes", "strict": "", "cos": "0.6647", "clip_delta": "0.0069", "edge_ratio": "0.053", "lum_delta": "0.377", "onset": "2.478", "strength": "4.9560", "monotone": "yes", "thumb": "thumbs/z_atmospheric_haze_density.webp"}, {"axis": "z_fog_density", "name": "fog density", "category": "atmosphere", "label": "washes", "strict": "", "cos": "0.8992", "clip_delta": "0.2195", "edge_ratio": "0.343", "lum_delta": "0.035", "onset": "0.716", "strength": "0.7159", "monotone": "yes", "thumb": "thumbs/z_fog_density.webp"}, {"axis": "z_overcast_vs_direct", "name": "overcast vs direct", "category": "atmosphere", "label": "holds", "strict": "holds", "cos": "0.8364", "clip_delta": "0.1338", "edge_ratio": "1.372", "lum_delta": "0.159", "onset": "", "strength": "2.3931", "monotone": "yes", "thumb": "thumbs/z_overcast_vs_direct.webp"}, {"axis": "z_pro_mist_diffusion", "name": "pro mist diffusion", "category": "atmosphere", "label": "washes", "strict": "", "cos": "0.9727", "clip_delta": "0.0131", "edge_ratio": "1.556", "lum_delta": "0.043", "onset": "", "strength": "0.5978", "monotone": "no", "thumb": "thumbs/z_pro_mist_diffusion.webp"}, {"axis": "z_volumetric_scattering", "name": "volumetric scattering", "category": "atmosphere", "label": "washes", "strict": "", "cos": "0.6681", "clip_delta": "-0.3898", "edge_ratio": "0.388", "lum_delta": "0.462", "onset": "1.734", "strength": "3.4669", "monotone": "yes", "thumb": "thumbs/z_volumetric_scattering.webp"}, {"axis": "z_aisle_width", "name": "aisle width", "category": "geometry", "label": "holds", "strict": "holds", "cos": "0.8785", "clip_delta": "0.1239", "edge_ratio": "1.647", "lum_delta": "0.197", "onset": "", "strength": "4.5327", "monotone": "yes", "thumb": "thumbs/z_aisle_width.webp"}, {"axis": "z_corridor_orientation", "name": "corridor orientation", "category": "geometry", "label": "holds", "strict": "holds", "cos": "0.3744", "clip_delta": "0.1098", "edge_ratio": "1.980", "lum_delta": "0.123", "onset": "", "strength": "9.5532", "monotone": "yes", "thumb": "thumbs/z_corridor_orientation.webp"}, {"axis": "z_geometric_vs_organic", "name": "geometric vs organic", "category": "geometry", "label": "washes", "strict": "", "cos": "0.8062", "clip_delta": "-0.0723", "edge_ratio": "0.379", "lum_delta": "0.335", "onset": "1.246", "strength": "2.4923", "monotone": "no", "thumb": "thumbs/z_geometric_vs_organic.webp"}, {"axis": "z_repetition_vs_variety", "name": "repetition vs variety", "category": "geometry", "label": "washes", "strict": "", "cos": "0.2585", "clip_delta": "-0.2612", "edge_ratio": "0.044", "lum_delta": "0.486", "onset": "2.572", "strength": "5.1434", "monotone": "yes", "thumb": "thumbs/z_repetition_vs_variety.webp"}, {"axis": "z_shadow_depth", "name": "shadow depth", "category": "geometry", "label": "washes", "strict": "", "cos": "0.8095", "clip_delta": "0.0563", "edge_ratio": "0.038", "lum_delta": "0.489", "onset": "1.007", "strength": "4.0272", "monotone": "yes", "thumb": "thumbs/z_shadow_depth.webp"}, {"axis": "z_shadow_hardness", "name": "shadow hardness", "category": "geometry", "label": "washes", "strict": "", "cos": "0.3856", "clip_delta": "0.3335", "edge_ratio": "0.037", "lum_delta": "0.493", "onset": "0.874", "strength": "3.4974", "monotone": "yes", "thumb": "thumbs/z_shadow_hardness.webp"}, {"axis": "z_shadows_on_floor", "name": "shadows on floor", "category": "geometry", "label": "washes", "strict": "", "cos": "0.5148", "clip_delta": "0.0260", "edge_ratio": "0.319", "lum_delta": "0.070", "onset": "9.133", "strength": "9.1333", "monotone": "no", "thumb": "thumbs/z_shadows_on_floor.webp"}, {"axis": "z_vignetting", "name": "vignetting", "category": "geometry", "label": "washes", "strict": "", "cos": "0.7597", "clip_delta": "0.1976", "edge_ratio": "0.040", "lum_delta": "0.475", "onset": "0.730", "strength": "2.9203", "monotone": "no", "thumb": "thumbs/z_vignetting.webp"}];
+const ORDER = ["light","camera","material","atmosphere","geometry"];
+let cat = "all", status = "all", query = "", sort = "category";
+const grid = document.getElementById("grid");
+const q = document.getElementById("q");
+const sortEl = document.getElementById("sort");
+function filter() {
+  let rows = DATA.filter(r =>
+    (cat === "all" || r.category === cat) &&
+    (status === "all" || r.label === status) &&
+    (!query || (r.name + " " + r.axis).includes(query))
+  );
+  if (sort === "name") rows.sort((a,b) => a.name.localeCompare(b.name));
+  if (sort === "clip") rows.sort((a,b) => (parseFloat(b.clip_delta)||-9) - (parseFloat(a.clip_delta)||-9));
+  if (sort === "edge") rows.sort((a,b) => (parseFloat(b.edge_ratio)||-9) - (parseFloat(a.edge_ratio)||-9));
+  if (sort === "category") rows.sort((a,b) => ORDER.indexOf(a.category) - ORDER.indexOf(b.category) || a.name.localeCompare(b.name));
+  grid.innerHTML = rows.map(card).join("");
+}
+function card(r) {
+  const badge = r.label === "holds" ? "holds" : r.label === "washes" ? "washes" : "unmeasured";
+  const strict = r.strict === "holds" ? "strict ✓" : (r.strict ? "strict: " + r.strict : "");
+  const mono = r.monotone === "yes" ? "monotone" : (r.monotone === "no" ? "non-monotone" : "");
+  const img = r.thumb
+    ? `<img class="thumb" loading="lazy" src="${r.thumb}" alt="${r.name} at three strengths">`
+    : `<div class="thumb" style="display:flex;align-items:center;justify-content:center;color:#4b5563;font-size:10px">no thumbnail</div>`;
+  const delta = r.clip_delta ? (parseFloat(r.clip_delta) > 0 ? "+" : "") + r.clip_delta : "—";
+  return `<article class="card">
+    ${img}
+    <div class="body">
+      <div class="title"><h2>${r.name}</h2><span class="badge ${badge}">${badge}</span></div>
+      <div class="chips"><span class="chip ${r.category}">${r.category}</span><span class="chip">cos ${r.cos || "—"}</span><span class="chip">top push ${r.strength || "—"}</span>${strict ? `<span class="chip">${strict}</span>` : ""}${mono ? `<span class="chip">${mono}</span>` : ""}</div>
+      <div class="metrics">
+        <div><span>ΔCLIP</span><b>${delta}</b></div>
+        <div><span>EDGE ×</span><b>${r.edge_ratio || "—"}</b></div>
+        <div><span>LUM Δ</span><b>${r.lum_delta || "—"}</b></div>
+        <div><span>ONSET</span><b>${r.onset || "—"}</b></div>
+      </div>
+    </div>
+  </article>`;
+}
+document.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => {
+  cat = b.dataset.cat;
+  document.querySelectorAll("[data-cat]").forEach(x => x.classList.toggle("active", x === b));
+  filter();
+});
+document.querySelectorAll("[data-status]").forEach(b => b.onclick = () => {
+  status = status === b.dataset.status ? "all" : b.dataset.status;
+  document.querySelectorAll("[data-status]").forEach(x => x.classList.toggle("active", x.dataset.status === status));
+  filter();
+});
+q.oninput = () => { query = q.value.toLowerCase(); filter(); };
+sortEl.onchange = () => { sort = sortEl.value; filter(); };
+filter();
+</script>
+</body>
+</html>

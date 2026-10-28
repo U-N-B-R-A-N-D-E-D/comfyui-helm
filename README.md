@@ -2,21 +2,32 @@
 
 # H E L M (`comfyui-helm`)
 
-### **Open models ship a prompt bar, not a direction. Helm reads one out of the model itself.**
+### **A prompt is a switch, not a dial. Helm gives you the dial.**
+
+In practice, a prompt can't do "a little": change one word and the whole frame changes; lengthen the prompt and it leaks into the scene; mix two prompts and the room stays packed until the scene flips (the fair benchmark below). Helm reads a direction the model already knows and injects it with one scalar: same framing, graded, no training. **Steer what it knows. Train what it doesn't.**
 
 **Training-free activation steering for ComfyUI & the Comfy Developer Platform.**
-Extract a latent direction from two contrast passes into a **small `.safetensors` file** (the shipped `density` axis is ~21 KB). Steer video and image DiTs with a single scalar. **Zero training. Zero weight modification. MIT-licensed.**
+Extract a latent direction from two contrast passes into a **small `.safetensors` file** (the shipped `density` axis is 21,888 B, ~22 KB). Steer video and image DiTs with a single scalar. **Zero training. Zero weight modification. MIT-licensed.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Format: safetensors](https://img.shields.io/badge/axes-.safetensors-brightgreen.svg)](#how-it-works)
-[![Tests: 75 passed](https://img.shields.io/badge/tests-75%20passed-success.svg)](docs/HARDENING.md)
+[![Tests: 75 passed](https://img.shields.io/badge/tests-77%20passed-success.svg)](docs/HARDENING.md)
 
 [**Quickstart**](#quickstart-60-seconds) · [**How It Works**](#how-it-works) · [**Comfy SDK App**](#run-as-an-app-via-the-comfy-sdk) · [**Experiments (78 Axes)**](docs/EXPERIMENTS.md) · [**Roadmap**](docs/ROADMAP.md) · [**Hardening Log**](docs/HARDENING.md)
 
 </div>
 
 ---
+
+<p align="center">
+  <a href="https://youtu.be/MxisBKxoDSQ" title="Watch the Helm demo on YouTube">
+    <img src="docs/images/demo.jpg" alt="Helm demo — same prompt, same seed, one number changed" width="100%"/>
+  </a>
+</p>
+<p align="center">
+  <a href="https://youtu.be/MxisBKxoDSQ"><b>▶ Watch the 47s demo on YouTube</b></a> — same prompt, same seed, one number changed.
+</p>
 
 ## Same Prompt. Same Seed. One Number Changed.
 
@@ -29,7 +40,7 @@ Move a single slider during sampling and shift the scene along an internal direc
 
 ### One Axis. Any Scene.
 
-An axis is not tied to the prompt that created it. Capture a `mood` or `density` direction once (~21 KB or less as a `.safetensors` file), and dial it into portraits, landscapes, night exteriors, or architectural shots:
+An axis is not tied to the prompt that created it. Capture a `mood` or `density` direction once (~22 KB or less as a `.safetensors` file), and dial it into portraits, landscapes, night exteriors, or architectural shots:
 
 <p align="center">
   <img src="docs/images/one_axis_any_scene.png" alt="One axis applied across portrait, forest, city, and interior scenes" width="100%"/>
@@ -88,7 +99,7 @@ Open ComfyUI's **Templates** browser, search **`helm`** (or drag a workflow from
 | **`ltx_t2v_helm.json`** | **LTX-2.3** (Video) | Official LTX blueprint wired with `HelmApply` (structural hook ready; `tested: false`). |
 | **`api/h3_t2v_helm_api.json`** | **Comfy SDK / API** | API-format workflow driven by `app/run_helm.py`. |
 
-Measured today: MiniMax H3 t2v (`mood`, `density`) and Z-Image. Krea2 templates are wired but not yet execution-validated; LTX ships with `tested: false` in `calibration.json` — none of these three are claimed as measured.
+Measured with Helm: MiniMax H3 t2v (`mood`, `density`) and Z-Image. The models used for generation elsewhere (Krea 2 stills, Qwen Image Edit, LTX/Flux tests) are **not** Helm-measured: Krea 2 templates are wired without a calibration entry, LTX ships `tested: false`, Qwen-Image/SD3 are refused by the tuple guard until declared/measured, and Flux is declared but has no dose. No Helm claim rests on them.
 
 ---
 
@@ -100,7 +111,7 @@ flowchart LR
     A["HelmCollect · tag=pos · Prompt A"] --> V["HelmVector"]
     B["HelmCollect · tag=neg · Prompt B"] --> V
   end
-  V -- "mean_pos - mean_neg" --> F["ComfyUI/user/steer/&lt;axis&gt;.safetensors<br/>(~21 KB + header metadata)"]
+  V -- "mean_pos - mean_neg" --> F["ComfyUI/user/steer/&lt;axis&gt;.safetensors<br/>(21,888 B + header metadata)"]
   F --> AP["2. HelmApply (block=-1 adopts the header block)"]
   M["MODEL Source<br/>(UNETLoader / H3 Director)"] --> AP
   AP -- "x + strength * axis" --> S["Sampler / Video Output"]
@@ -148,9 +159,11 @@ Activation steering for diffusion is not new, and we say so:
 - **CASteer** (Gaintseva et al., ICLR 2026, [arXiv:2503.09630](https://arxiv.org/abs/2503.09630)) — training-free steering vectors built by averaging cross-attention activations, for concept erasure in image diffusion.
 - **Concept Sliders** (Gandikota et al., ECCV 2024, [arXiv:2311.12092](https://arxiv.org/abs/2311.12092)) — interpretable sliders, but each one is a trained LoRA adaptor.
 
-What Helm adds is deliberately narrow and testable: **no training and no adapter** (a ~21 KB safetensors direction built from two passes at inference time), **on a video DiT** (MiniMax H3, not an image UNet), **inside ComfyUI** as a node pack with per-block calibration, a `safe_max` clamp and self-describing axes, and **published negative results** (the 78-axis sweep and the refuted predictor). We ran that comparison (fair design: both methods from the same starting prompt) — see §4 and `docs/EXPERIMENTS.md` §E. The mix is a scene switch; Helm is a graded change at the same framing.
+What Helm adds is deliberately narrow and testable: **no training and no adapter** (a ~22 KB safetensors direction built from two passes at inference time), **on a video DiT** (MiniMax H3, not an image UNet), **inside ComfyUI** as a node pack with per-block calibration, a `safe_max` clamp and self-describing axes, and **published negative results** (the 78-axis sweep and the refuted predictor). We ran that comparison (fair design: both methods from the same starting prompt) — see §4 and `docs/EXPERIMENTS.md` §E. The mix is a scene switch; Helm is a graded change at the same framing.
 
 ## Measured Science (Not Vibes)
+
+**In one line:** 78 captured, 55 dosed, **53 labelled**; **10/53** hold under the pre-registered criterion and **7/53** with the post-hoc ceiling — the video's **7-10 of 53**.
 
 ### 1. Monotonic Dose-Response & Seed Replication
 
@@ -167,7 +180,7 @@ At the same `strength = 0.30`, the `density` axis **drains** saturation (HSV sat
 ### 3. Cross-Architecture Reproduction & 78-Axis Stress Test
 
 - **Same contrast in a second architecture** (Z-Image / Lumina2, layers 9–21 of 30): the identical empty-vs-packed contrast reproduces monotonic content removal — edge density **0.018 → 0.001**. A "density" direction is not unique to H3's architecture; this is a same-effect result in two models, **not** vector transfer. [`docs/EXPERIMENTS.md` §C](docs/EXPERIMENTS.md#c-the-same-contrast-in-a-second-model-partial).
-- **78 directions measured on Z-Image — and killing our own predictor:** Under the pre-registered criterion, **10 of 53** dosed axes hold in `push` (43 wash, 2 unmeasured); a post-hoc ceiling (saturation <= 0.5 and edge <= 2x baseline) leaves **7 of 53**. The earlier "1 in 3" was a coarse summary and is superseded by the 2026-10-19 labels. The lowest survivor sits at **0.31** cosine alignment while a washed-out axis sits at **0.94** (cosine, not a separation score). At n=23 axes, cosine alignment with the mean activation appeared to predict usable axes perfectly. We scaled the test to n=78, watched the separation collapse, and **killed our own predictor hypothesis** rather than shipping a false filter — the numbers stay, the story goes. The table is in the repo: [`docs/data/zimage-78-axes.json`](docs/data/zimage-78-axes.json) (one row per axis: norm, cosine, and whether it was dosed) and [`docs/data/zimage-dose-response.json`](docs/data/zimage-dose-response.json) (163 dose points covering 55 of the 78 — the other 23 remain unmeasured).
+- **78 directions measured on Z-Image — and killing our own predictor:** Of 78 captured directions, 55 were dosed and 53 labelled. Under the pre-registered criterion, **10 of 53** hold in `push` (43 wash, 2 unmeasured); a post-hoc ceiling (saturation <= 0.5 and edge <= 2x baseline) leaves **7 of 53**. The earlier "1 in 3" was a coarse summary and is superseded by the 2026-10-19 labels. The lowest survivor sits at **0.31** cosine alignment while a washed-out axis sits at **0.94** (cosine, not a separation score). At n=23 axes, cosine alignment with the mean activation appeared to predict usable axes perfectly. We scaled the test to n=78, watched the separation collapse, and **killed our own predictor hypothesis** rather than shipping a false filter — the numbers stay, the story goes. The table is in the repo: [`docs/data/zimage-78-axes.json`](docs/data/zimage-78-axes.json) (one row per axis: norm, cosine, and whether it was dosed) and [`docs/data/zimage-dose-response.json`](docs/data/zimage-dose-response.json) (163 dose points covering 55 of the 78 — the other 23 remain unmeasured).
 
 ### 4. Not a Prompt Mixer (Measured, Fair Design)
 
@@ -190,11 +203,15 @@ raw numbers: [`docs/data/bench2-vs-prompt-mix.json`](docs/data/bench2-vs-prompt-
 
 The shipped H3 axes record `safe_max: 0.3`; the shipped Z-Image room-density axis records **0.25** (its wash is visible at 0.5). `HelmApply` clamps any strength past the recorded `safe_max`. LTX-2.3 ships flag-wrapped defaults with `tested: false` — module `transformer_blocks` is wired, the numbers are H3-derived placeholders pending a sweep. Axis scale is model-specific; confirm every model with 1–2 renders. The Z-Image band is not a law: on the §E benchmark axis the wash is already visible at 0.5, so check the wash onset per axis.
 
+## Study layer
+
+The derived study — normalised CSVs, nine charts, the 55-axis atlas and the negative-results note — lives in [`study/`](study/README.md). It turns the JSON in `docs/data/` into tables and a browsable atlas, and keeps the failures next to the survivors. Rebuild with `make -C study`; the source of truth stays [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) and [`docs/data/`](docs/data).
+
 ---
 
 ## Limitations
 
-- **Two models measured.** H3 (t2v) and Z-Image. LTX-2.3, Krea2 and Flux are wired but **not** execution-validated; their calibration entries are `null`/`tested: false` and no claim rests on them.
+- **Two models measured *with Helm*.** H3 (t2v) and Z-Image — that is where an axis, a band and a dose were measured. The models used for generation elsewhere are **not** Helm-measured: Krea 2 (templates wired, no calibration entry), LTX-2.3 (`tested: false`), Flux (tuple slot declared, no dose), Qwen-Image/SD3 (tuple `(txt, img)` refused until declared/measured). No Helm claim rests on them.
 - **The axes are low-level directions, not concepts.** Pushed far enough they wash the frame out; the wash is the signature of leaving the model's manifold, not a feature.
 - **One baseline measured.** Helm vs prompt-only (`ConditioningAverage`) is measured in §4 / `docs/EXPERIMENTS.md` §E (one model, one contrast pair, two seeds). A **LoRA baseline is not measured**.
 - **The pre-registered criterion has no upper bound on saturation or edge density.** A post-hoc ceiling (saturation <= 0.5, edge <= 2x baseline) leaves **7/53** push holds; the 3 primary survivors it excludes are the saturated/specular axes at their top dose (`z_saturated_vs_muted_stock`, `z_specular_reflection_density`, `z_specular_reflection_intensity`). The primary labels are unchanged; `strict_push` is in `docs/data/axis-labels.json`.
@@ -227,7 +244,7 @@ Where `HelmApply` injects into a block's output changes by architecture — some
 - **Self-contained `.safetensors` axes (No Pickle)** — header metadata (`dim`, `block`, `model`, `module`, `norm`, `safe_max`); the legacy `.pt` read path is kept for 0.2.0 axes and loads strictly with `weights_only=True`.
 - **Resolution order without metadata shadowing** — `user/steer` → `models/steer` → `example_axes/` (preferring `.safetensors` over a legacy `.pt` in the same directory); metadata comes strictly from the axis's own `.safetensors` header or sidecar, so a bundled axis never shadows a user's file. A missing axis raises a `FileNotFoundError` listing every directory searched.
 - **MiniMax H3 `aimdo` bypass** — `aimdo_enabled = False` strictly for the wrapped call, restored in the `finally` block along with hook removal.
-- **62 automated tests** — silent-failure modes pinned; the full defect log is [`docs/HARDENING.md`](docs/HARDENING.md).
+- **77 automated tests** (73 test functions; one parametrised over five block attributes) — silent-failure modes pinned; the full defect log is [`docs/HARDENING.md`](docs/HARDENING.md).
 
 ```bash
 curl -s http://127.0.0.1:8188/object_info | grep -o 'Helm[A-Za-z]*' | sort -u

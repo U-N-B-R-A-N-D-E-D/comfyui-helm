@@ -1,0 +1,59 @@
+kind,week,slot,title,axis,category,label,asset,angle
+axis,1,A,Axis — artificial light bursts,z_artificial_light_bursts,light,washes,atlas/thumbs/z_artificial_light_bursts.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,1,B,Axis — backlight rim,z_backlight_rim,light,washes,atlas/thumbs/z_backlight_rim.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,2,A,Axis — fluorescent vs tungsten,z_fluorescent_vs_tungsten,light,washes,atlas/thumbs/z_fluorescent_vs_tungsten.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,2,B,Axis — high key vs low key,z_high_key_vs_low_key,light,washes,atlas/thumbs/z_high_key_vs_low_key.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,3,A,Axis — lens flare intensity,z_lens_flare_intensity,light,washes,atlas/thumbs/z_lens_flare_intensity.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,3,B,Axis — light source position,z_light_source_position,light,washes,atlas/thumbs/z_light_source_position.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,4,A,Axis — mixed color sources,z_mixed_color_sources,light,washes,atlas/thumbs/z_mixed_color_sources.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,4,B,Axis — night practicals,z_night_practicals,light,washes,atlas/thumbs/z_night_practicals.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,5,A,Axis — prism effect intensity,z_prism_effect_intensity,light,washes,atlas/thumbs/z_prism_effect_intensity.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,5,B,Axis — raking light angle,z_raking_light_angle,light,holds,atlas/thumbs/z_raking_light_angle.webp,"Same prompt, same seed, one light direction. It holds; the caption carries the usable band."
+axis,6,A,Axis — snow light,z_snow_light,light,washes,atlas/thumbs/z_snow_light.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,6,B,Axis — sun angle,z_sun_angle,light,washes,atlas/thumbs/z_sun_angle.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,7,A,Axis — sun direction,z_sun_direction,light,washes,atlas/thumbs/z_sun_direction.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,7,B,Axis — sun raking angle,z_sun_raking_angle,light,washes,atlas/thumbs/z_sun_raking_angle.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,8,A,Axis — volumetric beams,z_volumetric_beams,light,holds,atlas/thumbs/z_volumetric_beams.webp,"Same prompt, same seed, one light direction. It holds; the caption carries the usable band."
+axis,8,B,Axis — window vs practicals,z_window_vs_practicals,light,washes,atlas/thumbs/z_window_vs_practicals.webp,"Same prompt, same seed, one light direction. It washes; the caption names the failure mode."
+axis,9,A,Axis — camera motion intensity,z_camera_motion_intensity,camera,washes,atlas/thumbs/z_camera_motion_intensity.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,9,B,Axis — figure ground separation,z_figure_ground_separation,camera,washes,atlas/thumbs/z_figure_ground_separation.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,10,A,Axis — foreground occlusion,z_foreground_occlusion,camera,washes,atlas/thumbs/z_foreground_occlusion.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,10,B,Axis — framing angle,z_framing_angle,camera,washes,atlas/thumbs/z_framing_angle.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,11,A,Axis — horizon height,z_horizon_height,camera,washes,atlas/thumbs/z_horizon_height.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,11,B,Axis — lens distortion,z_lens_distortion,camera,washes,atlas/thumbs/z_lens_distortion.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,12,A,Axis — motion blur,z_motion_blur,camera,holds,atlas/thumbs/z_motion_blur.webp,"Same scene, one camera direction. It holds; the caption carries the usable band."
+axis,12,B,Axis — motion blur intensity,z_motion_blur_intensity,camera,washes,atlas/thumbs/z_motion_blur_intensity.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,13,A,Axis — perspective convergence,z_perspective_convergence,camera,washes,atlas/thumbs/z_perspective_convergence.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,13,B,Axis — spatial depth,z_spatial_depth,camera,washes,atlas/thumbs/z_spatial_depth.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,14,A,Axis — subject scale,z_subject_scale,camera,washes,atlas/thumbs/z_subject_scale.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,14,B,Axis — symmetry,z_symmetry,camera,washes,atlas/thumbs/z_symmetry.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,15,A,Axis — telephoto compression,z_telephoto_compression,camera,washes,atlas/thumbs/z_telephoto_compression.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,15,B,Axis — vanishing point position,z_vanishing_point_position,camera,washes,atlas/thumbs/z_vanishing_point_position.webp,"Same scene, one camera direction. It washes; the caption names the failure mode."
+axis,16,A,Axis — bw film stock,z_bw_film_stock,material,washes,atlas/thumbs/z_bw_film_stock.webp,Surface response at three doses. It washes; the caption names the failure mode.
+axis,16,B,Axis — film grain,z_film_grain,material,washes,atlas/thumbs/z_film_grain.webp,Surface response at three doses. It washes; the caption names the failure mode.
+axis,17,A,Axis — refraction focus,z_refraction_focus,material,washes,atlas/thumbs/z_refraction_focus.webp,Surface response at three doses. It washes; the caption names the failure mode.
+axis,17,B,Axis — saturated vs muted stock,z_saturated_vs_muted_stock,material,holds,atlas/thumbs/z_saturated_vs_muted_stock.webp,Surface response at three doses. It holds; the caption carries the usable band.
+axis,18,A,Axis — sensor noise iso,z_sensor_noise_iso,material,washes,atlas/thumbs/z_sensor_noise_iso.webp,Surface response at three doses. It washes; the caption names the failure mode.
+axis,18,B,Axis — shading intensity,z_shading_intensity,material,washes,atlas/thumbs/z_shading_intensity.webp,Surface response at three doses. It washes; the caption names the failure mode.
+axis,19,A,Axis — specular reflection density,z_specular_reflection_density,material,holds,atlas/thumbs/z_specular_reflection_density.webp,Surface response at three doses. It holds; the caption carries the usable band.
+axis,19,B,Axis — specular reflection intensity,z_specular_reflection_intensity,material,holds,atlas/thumbs/z_specular_reflection_intensity.webp,Surface response at three doses. It holds; the caption carries the usable band.
+axis,20,A,Axis — surface reflection intensity,z_surface_reflection_intensity,material,holds,atlas/thumbs/z_surface_reflection_intensity.webp,Surface response at three doses. It holds; the caption carries the usable band.
+axis,20,B,Axis — wet vs dry reflectance,z_wet_vs_dry_reflectance,material,washes,atlas/thumbs/z_wet_vs_dry_reflectance.webp,Surface response at three doses. It washes; the caption names the failure mode.
+axis,21,A,Axis — atmospheric haze density,z_atmospheric_haze_density,atmosphere,washes,atlas/thumbs/z_atmospheric_haze_density.webp,Atmosphere without rewriting the prompt. It washes; the caption names the failure mode.
+axis,21,B,Axis — fog density,z_fog_density,atmosphere,washes,atlas/thumbs/z_fog_density.webp,Atmosphere without rewriting the prompt. It washes; the caption names the failure mode.
+axis,22,A,Axis — overcast vs direct,z_overcast_vs_direct,atmosphere,holds,atlas/thumbs/z_overcast_vs_direct.webp,Atmosphere without rewriting the prompt. It holds; the caption carries the usable band.
+axis,22,B,Axis — pro mist diffusion,z_pro_mist_diffusion,atmosphere,washes,atlas/thumbs/z_pro_mist_diffusion.webp,Atmosphere without rewriting the prompt. It washes; the caption names the failure mode.
+axis,23,A,Axis — volumetric scattering,z_volumetric_scattering,atmosphere,washes,atlas/thumbs/z_volumetric_scattering.webp,Atmosphere without rewriting the prompt. It washes; the caption names the failure mode.
+axis,23,B,Axis — aisle width,z_aisle_width,geometry,holds,atlas/thumbs/z_aisle_width.webp,"Composition, not a new scene. It holds; the caption carries the usable band."
+axis,24,A,Axis — corridor orientation,z_corridor_orientation,geometry,holds,atlas/thumbs/z_corridor_orientation.webp,"Composition, not a new scene. It holds; the caption carries the usable band."
+axis,24,B,Axis — geometric vs organic,z_geometric_vs_organic,geometry,washes,atlas/thumbs/z_geometric_vs_organic.webp,"Composition, not a new scene. It washes; the caption names the failure mode."
+axis,25,A,Axis — repetition vs variety,z_repetition_vs_variety,geometry,washes,atlas/thumbs/z_repetition_vs_variety.webp,"Composition, not a new scene. It washes; the caption names the failure mode."
+axis,25,B,Axis — shadow depth,z_shadow_depth,geometry,washes,atlas/thumbs/z_shadow_depth.webp,"Composition, not a new scene. It washes; the caption names the failure mode."
+axis,26,A,Axis — shadow hardness,z_shadow_hardness,geometry,washes,atlas/thumbs/z_shadow_hardness.webp,"Composition, not a new scene. It washes; the caption names the failure mode."
+axis,26,B,Axis — shadows on floor,z_shadows_on_floor,geometry,washes,atlas/thumbs/z_shadows_on_floor.webp,"Composition, not a new scene. It washes; the caption names the failure mode."
+axis,27,A,Axis — vignetting,z_vignetting,geometry,washes,atlas/thumbs/z_vignetting.webp,"Composition, not a new scene. It washes; the caption names the failure mode."
+special,1,special,Three hypotheses we killed,,,,NEGATIVE-RESULTS.md,"The predictor, the probe estimator, and norm/clamp."
+special,2,special,Helm vs prompt mixing,,,,charts/07_prompt_mix.png,A step is not a slider.
+special,3,special,Which models are measured?,,,,charts/09_model_matrix.png,"Two measured, five not."
+special,4,special,The axis atlas,,,,atlas/index.html,"55 directions, one page."
+special,5,special,How this study is built,,,,DATASET.md,From renders to tables.

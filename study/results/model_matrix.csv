@@ -1,0 +1,8 @@
+model,module,blocks,dim,default_block,band,strength,status
+MiniMax H3,blocks,50,5376,20,15-35,0.01-0.30,measured
+Z-Image / Lumina2,layers,30,3840,15,9-21,0.50-3.00,measured
+LTX-2.3,transformer_blocks,,,20,,,"hook ready, untested"
+Krea 2,blocks,,,,,,"wired, no calibration"
+Flux (DoubleStreamBlock),double_blocks,,,,,,"tuple slot declared, no dose"
+SD3,joint_blocks,,,,,,refused until measured
+Qwen-Image,transformer_blocks,,,,,,refused until measured

@@ -12,7 +12,8 @@ Extract a latent direction from two contrast passes into a **small `.safetensors
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Format: safetensors](https://img.shields.io/badge/axes-.safetensors-brightgreen.svg)](#how-it-works)
-[![Tests: 75 passed](https://img.shields.io/badge/tests-77%20passed-success.svg)](docs/HARDENING.md)
+[![Tests: 77 passed](https://img.shields.io/badge/tests-77%20passed-success.svg)](docs/HARDENING.md)
+[![Comfy Registry](https://img.shields.io/badge/Comfy%20Registry-0.3.10%20Active-success.svg)](https://registry.comfy.org/nodes/comfyui-helm)
 
 [**Quickstart**](#quickstart-60-seconds) · [**How It Works**](#how-it-works) · [**Comfy SDK App**](#run-as-an-app-via-the-comfy-sdk) · [**Experiments (78 Axes)**](docs/EXPERIMENTS.md) · [**Roadmap**](docs/ROADMAP.md) · [**Hardening Log**](docs/HARDENING.md)
 
@@ -66,6 +67,14 @@ Higgsfield put cinematic look and set controls behind a closed cloud studio. **H
 ## Quickstart (60 Seconds)
 
 ### 1. Install in ComfyUI
+
+**From the Comfy Registry (recommended):** In ComfyUI Manager search **Helm**, or run:
+
+```bash
+comfy node install comfyui-helm@0.3.10
+```
+
+**Manual clone (development):**
 
 ```bash
 cd ComfyUI/custom_nodes

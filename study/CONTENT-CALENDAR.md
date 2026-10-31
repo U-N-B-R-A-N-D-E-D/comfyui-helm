@@ -9,7 +9,7 @@ Every post is a measurement, not a promise:
 - **Show the failure.** A wash is more interesting than a hold; it is the reason the band exists.
 - **Name the band.** "Holds at 0.5-2.8, washes at 5.0" is the post.
 - **No semantic claim.** Say "direction" and "strength", not "it understands fog".
-- **No client renders.** The KCA production is not Helm and never appears.
+- **No client renders.** Client production work is not Helm and never appears.
 - **One CTA.** The atlas or the repo, not both.
 
 ## Formats

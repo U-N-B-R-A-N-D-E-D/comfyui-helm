@@ -15,6 +15,56 @@ async function fetchAxisNames() {
   }
 }
 
+async function fetchDialChoices() {
+  try {
+    const response = await api.fetchApi("/helm/axes");
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const choices = (payload.dial || []).map((entry) => entry.choice).filter(Boolean);
+    return choices.length ? choices : null;
+  } catch (error) {
+    console.warn("[helm] could not load the dial menu", error);
+    return null;
+  }
+}
+
+const dialNodes = new Set();
+
+async function refreshDialMenus() {
+  const choices = await fetchDialChoices();
+  if (!choices) return;
+  for (const node of dialNodes) {
+    const axis = node.widgets?.find((widget) => widget.name === "axis");
+    if (!axis) continue;
+    axis.options.values = choices;
+    // keep the current value even if it is not in the list (an axis made later in the same run)
+    node.setDirtyCanvas?.(true, true);
+  }
+}
+
+app.registerExtension({
+  name: "comfyui-helm.dial-menu",
+  async beforeRegisterNodeDef(nodeType, nodeData) {
+    if (nodeData.name !== "HelmDial") return;
+    const onNodeCreated = nodeType.prototype.onNodeCreated;
+    nodeType.prototype.onNodeCreated = function () {
+      const result = onNodeCreated?.apply(this, arguments);
+      dialNodes.add(this);
+      const onRemoved = this.onRemoved;
+      this.onRemoved = function () {
+        dialNodes.delete(this);
+        return onRemoved?.apply(this, arguments);
+      };
+      refreshDialMenus();
+      return result;
+    };
+  },
+  async setup() {
+    // Make Axis writes a new file during a run; offer it in the Dial menu without a page reload.
+    api.addEventListener("execution_success", () => refreshDialMenus());
+  },
+});
+
 app.registerExtension({
   name: "comfyui-helm.axis-picker",
   async beforeRegisterNodeDef(nodeType, nodeData) {

@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_comfyignore_excludes_dev_paths():
     ignore = (ROOT / ".comfyignore").read_text()
-    for path in ("tests/", "docs/", "study/", ".github/", "examples/"):
+    for path in ("tests/", "docs/", "study/", ".github/", "examples/", "tools/"):
         assert path in ignore, f"{path} must stay out of the Registry package"
 
 

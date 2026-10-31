@@ -11,10 +11,10 @@ In practice: more fog, less clutter, more cinematic light — one slider, no pro
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Format: safetensors](https://img.shields.io/badge/axes-.safetensors-brightgreen.svg)](#how-it-works)
-[![Tests: 84 passed](https://img.shields.io/badge/tests-84%20passed-success.svg)](docs/HARDENING.md)
+[![Tests: 160 passed](https://img.shields.io/badge/tests-160%20passed-success.svg)](docs/HARDENING.md)
 [![Comfy Registry](https://img.shields.io/badge/Comfy%20Registry-0.3.11%20Active-success.svg)](https://registry.comfy.org/nodes/comfyui-helm)
 
-[**See it**](#see-it) · [**Benchmark**](#the-honest-benchmark) · [**Start with Z-Image**](#start-with-z-image) · [**Build an axis**](#build-your-own-axis-in-60-seconds) · [**All workflows**](#all-workflows) · [**Experiments (78 axes)**](docs/EXPERIMENTS.md) · [**Roadmap**](docs/ROADMAP.md)
+[**See it**](#see-it) · [**Benchmark**](#the-honest-benchmark) · [**What you'll see**](#what-youll-see) · [**Build an axis**](#build-your-own-axis-in-60-seconds) · [**All workflows**](#all-workflows) · [**Experiments (78 axes)**](docs/EXPERIMENTS.md) · [**Roadmap**](docs/ROADMAP.md)
 
 </div>
 
@@ -73,35 +73,32 @@ Higgsfield put cinematic look and set controls behind a closed cloud studio. Hel
 - **Stackable & clamped (a 0 → 1 dial).** Chain several `HelmApply` nodes (mood → density) on the same model patcher. The built-in `safe_max` clamp and a normalized 0.0–1.0 dial keep you inside the verified band.
 - **Engineered for real DiT runtimes.** It automatically bypasses MiniMax H3's aimdo per-block memory compiler during hook execution, enforces visual-stream tuple safety on dual-stream architectures, and runs both interactively in ComfyUI and headlessly via the Comfy SDK.
 
-## Start with Z-Image
+## What you'll see
 
-H3 is the flagship, but it needs a 21 GB int8 UNet and a 32B text encoder. **Start with Z-Image**, which runs on a consumer GPU.
+Install, restart ComfyUI, then open **Templates -> search `helm` -> `helm_1_start_here`** ("Helm 1 · Start here (Z-Image)"). Nothing is hidden in a subgraph. Left to right you get:
 
-1. **Install**
+1. **Your prompt** (green box): write what you want.
+2. **Models**: leave as they are.
+3. **The Dial** (orange box): pick an idea from the menu (for example *Less clutter*) and move **Amount** from 0 to 1. 0 is off; 1 is the strongest setting that still looks right for that idea.
+4. **Result: Before | After**: one Run renders your prompt twice with the same seed, once with the Dial off and once with your Amount, side by side.
 
-   ```bash
-   comfy node install comfyui-helm@0.3.11
-   ```
+That is the whole product: one slider moves one idea, and your prompt is never rewritten. The first template needs Z-Image (consumer GPU, core ComfyUI nodes only).
 
-   Or clone into `ComfyUI/custom_nodes` and restart ComfyUI.
+```bash
+comfy node install comfyui-helm
+```
 
-2. **Open the template**
+Or clone into `ComfyUI/custom_nodes` and restart ComfyUI.
 
-   Templates → search `helm` → `z_image_helm.json`. It loads `z_room_density.safetensors` (block 15, dim 3840, `safe_max 0.25`).
+The other two starters: **`helm_2_video_h3`** is the same Dial on MiniMax H3 video (core nodes; needs a ComfyUI recent enough to ship the H3 nodes, checked on 0.43.2; the int8 UNet does not fit in 24 GB). **`helm_3_make_your_own_axis`** shows **Helm · Make Axis**: type the idea twice (with it, without it), press Run, and the new axis is saved and dialed straight away.
 
-3. **Move the dial**
-
-   Run at `0.0`, then `0.10`, then `0.25`. Same prompt, same seed. The pack clamps at the recorded `safe_max`; stop at the wash point for your axis.
-
-The H3 templates are the flagship video path. They need the third-party `MiniMaxH3Director` node and do not fit in 24 GB. See [All workflows](#all-workflows).
+The *Essentials* in the Dial menu are only axes that hold up in this repo's own benchmark ([the honest benchmark](#the-honest-benchmark), [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md)). Anything you make or drop in appears under *Custom* and is **not** benchmarked.
 
 ## Build your own axis in 60 seconds
 
-Two contrast passes → one file:
+Open `helm_3_make_your_own_axis`, type two prompts (**with the idea**, **without the idea**; change only the idea) and press Run. **Helm · Make Axis** runs both contrast passes in one execution, saves the axis to `ComfyUI/user/steer/`, and the **Dial** picks it up. Its safe range is an estimate (0.5% of the activation norm), not a measurement: trust the Before | After picture.
 
-`HelmCollect(tag=pos)` + `HelmCollect(tag=neg)` → `HelmVector`.
-
-Point `HelmApply` at the result. `block=-1` reads the block from the file header; `safe_max` keeps the dial inside the measured band. No training, no adapter, no checkpoint.
+The manual route still exists under `Helm/Lab`: `Record activations` (run twice) → `Build axis from two recordings` (`HelmCollect(tag=pos)` + `HelmCollect(tag=neg)` → `HelmVector`). Point `Apply axis (manual strength)` (`HelmApply`) at the result. `block=-1` reads the block from the file header; `safe_max` keeps the dial inside the measured band. No training, no adapter, no checkpoint.
 
 **Download the 3-axis pack:** [`example_axes/`](example_axes/).
 
@@ -115,32 +112,50 @@ The H3 axes are ~22 KB; the Z-Image axis is ~16 KB. Point `HelmApply` at any of 
 
 Prebuilt axes ship inside `example_axes/` and resolve automatically on a fresh clone. The H3 axes (`mood.safetensors`, `density.safetensors`) were captured on **MiniMax H3** (block 20, dim 5376); the Z-Image axis (`z_room_density.safetensors`) is block 15, dim 3840.
 
-Open ComfyUI's **Templates** browser, search **`helm`**, or drag a workflow from `example_workflows/` onto the canvas:
+Open ComfyUI's **Templates** browser and search **`helm`**, or drag a workflow from `example_workflows/` onto the canvas.
 
-**What each path actually needs — no hidden steps:**
+**Starter templates (the template browser lists exactly these three):**
 
-| Path | Nodes | Models | Hardware |
-| :--- | :--- | :--- | :--- |
-| **Z-Image** (`z_image_helm.json`) | core ComfyUI nodes only | Z-Image / Lumina2 weights | runs on a consumer GPU |
-| **MiniMax H3** (`h3_*.json`) | **+ `MiniMaxH3Director` (third-party node pack)** | H3 UNet (~21 GB int8) + Qwen3-VL 32B text encoder | the int8 UNet does **not** fit in 24 GB |
+| Template | Model | What it does |
+| :--- | :--- | :--- |
+| **`helm_1_start_here`** | **Z-Image** | Dial + Before \| After. Core ComfyUI nodes only; consumer GPU. |
+| **`helm_2_video_h3`** | **MiniMax H3** (video) | The same Dial on video; renders Before and After. Needs the H3 UNet (~21 GB int8, not for 24 GB) + Qwen3-VL 32B text encoder. |
+| **`helm_3_make_your_own_axis`** | **Z-Image** | **Make Axis** -> **Dial**. Image models with plain text prompts. |
+
+**Older templates (`example_workflows/legacy/`, kept so old links still load; notes rewritten in plain language):**
 
 | Workflow | Model | What it does |
 | :--- | :--- | :--- |
-| **`z_image_helm.json`** | **Z-Image / Lumina2** | Steer image generation across verified layers 9–21. |
-| **`h3_t2v_helm.json`** | **MiniMax H3** (Video) | **The flagship app:** type a prompt, move the `mood` & `density` sliders, hit Queue. |
-| **`h3_i2v_helm.json`** | **MiniMax H3** (I2V) | Image-to-video generation with live activation steering. |
-| **`krea2_helm.json`** | **Krea2** | Image generation with `HelmApply` wired between LoRA loader and sampler. *(Build a Krea2 axis first; template wired, not yet execution-validated.)* |
-| **`krea2_helm_collect.json`** | **Krea2** | Two-pass collection graph to build a custom axis from text contrast. *(Template wired; not yet execution-validated.)* |
-| **`krea2_helm_image_axis.json`** | **Krea2** (Img2Img) | Extract an axis directly from two contrast images — no contrast prompt needed. *(Template wired; not yet execution-validated.)* |
-| **`helm_vector.json`** | *Model-agnostic* | `HelmVector → PreviewAny`: subtract two collected tags into a reusable `.safetensors` axis. |
-| **`ltx_t2v_helm.json`** | **LTX-2.3** (Video) | Official LTX blueprint wired with `HelmApply`. *(Build an LTX axis first; structural hook ready, `tested: false`.)* |
-| **`api/h3_t2v_helm_api.json`** | **Comfy SDK / API** | API-format workflow driven by `app/run_helm.py`. |
+| `h3_t2v_helm.json` | MiniMax H3 (video) | Two stacked manual controls (`mood`, `density`); needs the third-party `MiniMaxH3Director` node. |
+| `h3_i2v_helm.json` | MiniMax H3 (I2V) | Image-to-video; the Helm control lives inside the grouped node. |
+| `krea2_helm.json` | Krea2 | One manual `Apply axis`. *(Build a Krea2 axis first; template wired, not yet execution-validated.)* |
+| `krea2_helm_collect.json` | Krea2 | Manual two-pass recording to build an axis. *(Not yet execution-validated.)* |
+| `krea2_helm_image_axis.json` | Krea2 (Img2Img) | An axis defined by two images. *(Not yet execution-validated.)* |
+| `krea2_turbo_helm.json` | Krea-2 Turbo | Helm control inside the grouped node. *(No axis shipped.)* |
+| `helm_vector.json` | model-agnostic | `Build axis from two recordings -> PreviewAny`. |
+| `ltx_t2v_helm.json` | LTX-2.3 (video) | Helm control inside the grouped node. *(`tested: false`.)* |
+| `api/h3_t2v_helm_api.json` | Comfy SDK / API | API-format workflow driven by `app/run_helm.py`. |
 
 Measured with Helm: MiniMax H3 t2v (`mood`, `density`) and Z-Image. The models used for generation elsewhere (Krea 2 stills, Qwen Image Edit, LTX/Flux tests) are **not** Helm-measured: Krea 2 templates are wired without a calibration entry, LTX ships `tested: false`, Qwen-Image/SD3 are refused by the tuple guard until declared/measured, and Flux is declared but has no dose. No Helm claim rests on them.
 
 ## How It Works
 
-### The node suite (category: Helm)
+### The node suite
+
+| Node (display name) | Class | Category | For |
+| :--- | :--- | :--- | :--- |
+| **Helm · Dial** | `HelmDial` | `Helm` | Everyday control: pick an idea by name, move Amount 0-1. |
+| **Helm · Make Axis** | `HelmMakeAxis` | `Helm` | Two prompts in, a new axis out (both passes in one run). |
+| Helm Lab · Record activations | `HelmCollect` | `Helm/Lab` | Record what the model does for one prompt. |
+| Helm Lab · Build axis from two recordings | `HelmVector` | `Helm/Lab` | Subtract two recordings into an axis file. |
+| Helm Lab · Apply axis (manual strength) | `HelmApply` | `Helm/Lab` | Inject an axis with an explicit strength, block and mode. |
+| Helm Lab · Probe every block | `HelmProbe` | `Helm/Lab` | Onboard a new model: record every block. |
+| Helm Lab · Probe report | `HelmProbeReport` | `Helm/Lab` | Rank blocks by prompt separation. |
+
+Class names are unchanged from 0.3.x, so saved workflows still load; only the menu location and display names changed.
+
+- **`HelmDial` (MODEL → MODEL):** `axis` is a menu of human names: *Essentials* (axes this repo's benchmark shows hold; listed only when the axis file is on disk; catalog in `axes_catalog.json`) then *Custom* (everything else, including axes made by Make Axis). `amount` maps 0 → `safe_max` recorded in the axis header (falling back to the catalog's highest tested strength); it never extrapolates. Delegates to `HelmApply`, so the hook is the same code. Refuses, in plain words, an axis made for another model. Optional `axis_from` takes the `axis` output of Make Axis.
+- **`HelmMakeAxis` (MODEL + CLIP + LATENT → MODEL, STRING):** encodes the two prompts, runs two short renders through ComfyUI's own sampler with the same hook machinery as `HelmCollect`, subtracts the means (same arithmetic as `HelmVector`), and saves a self-describing axis with an *estimated* conservative `safe_max` (0.5% of the activation norm; stored with `safe_max_source`, never presented as verified). Works with models that take plain text conditioning (Z-Image today); for H3 build axes with the Lab nodes.
 
 - **`HelmCollect` (MODEL → MODEL):** hooks `diffusion_model.<blocks>[K]`, accumulates the mean activation across sampling steps, and writes `ComfyUI/user/steer/<tag>.safetensors` once per run. Includes `cond_only` to isolate conditional batch items.
 - **`HelmVector` (tags → STRING):** computes `axis = mean_pos - mean_neg` and saves a self-describing `.safetensors` axis with its dim, block, model, module, norm, and optional `safe_max` embedded in the header.
@@ -259,7 +274,7 @@ Zero silent guessing: an undeclared tuple block raises an explicit `RuntimeError
 - **Self-contained `.safetensors` axes (no pickle).** Header metadata (dim, block, model, module, norm, `safe_max`); the legacy `.pt` read path is kept for 0.2.0 axes and loads strictly with `weights_only=True`.
 - **Resolution order without metadata shadowing.** `user/steer` → `models/steer` → `example_axes/` (preferring `.safetensors` over a legacy `.pt` in the same directory); metadata comes strictly from the axis's own `.safetensors` header or sidecar, so a bundled axis never shadows a user's file. A missing axis raises a `FileNotFoundError` listing every directory searched.
 - **MiniMax H3 aimdo bypass.** `aimdo_enabled = False` strictly for the wrapped call, restored in the `finally` block along with hook removal.
-- **84 automated tests** — silent-failure modes pinned; the full defect log is [`docs/HARDENING.md`](docs/HARDENING.md).
+- **161 automated tests** (one optional check needs a ComfyUI checkout) — silent-failure modes pinned; the full defect log is [`docs/HARDENING.md`](docs/HARDENING.md).
 
 ```bash
 curl -s http://127.0.0.1:8188/object_info | grep -o 'Helm[A-Za-z]*' | sort -u

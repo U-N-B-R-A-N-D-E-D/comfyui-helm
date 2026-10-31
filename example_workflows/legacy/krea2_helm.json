@@ -1,5 +1,5 @@
 {
-  "id": "1e173a09-949d-4143-a2de-1a3cfcbf5750",
+  "id": "f32bee3a-a4f4-4988-a260-64a36a5c4a27",
   "revision": 0,
   "last_node_id": 12,
   "last_link_id": 10,
@@ -44,7 +44,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            1
+            4
           ]
         }
       ],
@@ -145,93 +145,6 @@
       ],
       "properties": {
         "Node name for S&R": "VAEDecode"
-      }
-    },
-    {
-      "id": 4,
-      "type": "LoraLoader",
-      "pos": [
-        57.87060053661617,
-        209.222991635101
-      ],
-      "size": [
-        315,
-        126
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "model",
-          "name": "model",
-          "type": "MODEL",
-          "link": 1
-        },
-        {
-          "localized_name": "clip",
-          "name": "clip",
-          "type": "CLIP",
-          "link": 2
-        },
-        {
-          "localized_name": "lora_name",
-          "name": "lora_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "lora_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "strength_model",
-          "name": "strength_model",
-          "type": "FLOAT",
-          "widget": {
-            "name": "strength_model"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "strength_clip",
-          "name": "strength_clip",
-          "type": "FLOAT",
-          "widget": {
-            "name": "strength_clip"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "MODEL",
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            4
-          ]
-        },
-        {
-          "localized_name": "CLIP",
-          "name": "CLIP",
-          "type": "CLIP",
-          "links": [
-            5
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoraLoader"
-      },
-      "widgets_values": [
-        "krea2/fedor_bypass.safetensors",
-        0.8,
-        0.8
-      ],
-      "widgets_values_named": {
-        "lora_name": "krea2/fedor_bypass.safetensors",
-        "strength_model": 0.8,
-        "strength_clip": 0.8
       }
     },
     {
@@ -628,7 +541,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            2
+            5
           ]
         }
       ],
@@ -648,14 +561,14 @@
     },
     {
       "id": 11,
-      "type": "HelmCollect",
+      "type": "HelmApply",
       "pos": [
         450,
         300
       ],
       "size": [
         280,
-        98
+        106
       ],
       "flags": {},
       "order": 4,
@@ -679,11 +592,12 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "HelmCollect"
+        "Node name for S&R": "HelmApply"
       },
       "widgets_values": [
-        "pos",
-        20
+        "krea2_axis",
+        20,
+        0.1
       ]
     },
     {
@@ -695,7 +609,7 @@
       ],
       "size": [
         430,
-        240
+        220
       ],
       "flags": {},
       "order": 0,
@@ -703,30 +617,14 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "HelmCollect on Krea2 (image) - build one axis.\n\n1) Run with tag 'pos' and prompt A.\n2) Edit tag to 'neg' and the prompt to B, run again.\n3) Open helm_vector to combine the two tags into an axis.\nReplaces HelmApply in this graph; the rest of the wiring is identical."
+        "text": "HELM LAB (older template). Most people want 'Helm 1 - Start here' instead.\n\nKrea 2 image with one manual 'Apply axis' node.\nYou need an axis for Krea 2 first (none ships with Helm): build one with krea2_helm_collect.\nSet 'axis' to its name, then try strengths from 0.05 upward and compare. Strength 0 = Helm off.\nStrengths are model-specific, so confirm with one or two test renders."
       },
       "widgets_values": [
-        "HelmCollect on Krea2 (image) - build one axis.\n\n1) Run with tag 'pos' and prompt A.\n2) Edit tag to 'neg' and the prompt to B, run again.\n3) Open helm_vector to combine the two tags into an axis.\nReplaces HelmApply in this graph; the rest of the wiring is identical."
+        "HELM LAB (older template). Most people want 'Helm 1 - Start here' instead.\n\nKrea 2 image with one manual 'Apply axis' node.\nYou need an axis for Krea 2 first (none ships with Helm): build one with krea2_helm_collect.\nSet 'axis' to its name, then try strengths from 0.05 upward and compare. Strength 0 = Helm off.\nStrengths are model-specific, so confirm with one or two test renders."
       ]
     }
   ],
   "links": [
-    [
-      1,
-      1,
-      0,
-      4,
-      0,
-      "MODEL"
-    ],
-    [
-      2,
-      2,
-      0,
-      4,
-      0,
-      "CLIP"
-    ],
     [
       3,
       3,
@@ -737,7 +635,7 @@
     ],
     [
       4,
-      4,
+      1,
       0,
       11,
       0,
@@ -745,7 +643,7 @@
     ],
     [
       5,
-      6,
+      2,
       0,
       5,
       1,
@@ -792,20 +690,7 @@
       "MODEL"
     ]
   ],
-  "groups": [
-    {
-      "id": 1,
-      "title": "Krea2 Unclocked (fedor_bypass)",
-      "bounding": [
-        30,
-        20,
-        1500,
-        400
-      ],
-      "color": "#2a363d",
-      "flags": {}
-    }
-  ],
+  "groups": [],
   "config": {},
   "extra": {
     "ds": {

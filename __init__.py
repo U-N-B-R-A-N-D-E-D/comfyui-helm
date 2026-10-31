@@ -41,6 +41,8 @@ try:
                         "created": meta.get("created"),
                         "tested": meta.get("tested"),
                     })
-        return web.json_response({"axes": axes, "dirs": list(_nodes._READ_DIRS)})
+        # `dial` is the menu the HelmDial node offers: Essentials (benchmarked) then Custom.
+        return web.json_response({"axes": axes, "dial": _nodes._dial_entries(),
+                                  "dirs": list(_nodes._READ_DIRS)})
 except Exception:
     pass

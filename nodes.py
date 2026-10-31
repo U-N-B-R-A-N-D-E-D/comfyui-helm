@@ -6,7 +6,13 @@ Read a transformer block's mean activation for two contrastive prompts (diff-in-
 `models/steer/` -> this pack's `example_axes/`; writes always go to `user/steer/`. Axes written by
 older versions as `.pt` are still read; `HelmApply` `block=-1` adopts the block recorded in the axis.
 
-Nodes
+Everyday nodes (category `Helm`)
+  HelmDial      MODEL -> MODEL   pick an idea by name, move Amount 0-1. No strength, norm or block to know:
+                                 amount maps to 0..safe_max recorded inside the axis file.
+  HelmMakeAxis  MODEL+CLIP -> MODEL, STRING   write "with the idea" / "without the idea", press Run:
+                                 records both contrast passes in one execution, saves the axis file.
+
+Lab nodes (category `Helm/Lab`, class names unchanged so old workflows still load)
   HelmCollect  MODEL -> MODEL   mean activation at block K for a tag (run once per prompt)
   HelmVector   tags  -> STRING  axis = mean_pos - mean_neg -> reusable axis file
   HelmApply    MODEL -> MODEL   inject x + strength*axis at block K (chain several for multiple axes)
@@ -578,6 +584,193 @@ def _make_probe_hook(acc, tag, module, model_name, cond_only, write_mode):
     return fn
 
 
+# --- the Dial: human axis names, amount 0-1 -----------------------------------------------
+# `axes_catalog.json` lists the axes the repo's own benchmark says HOLD (docs/EXPERIMENTS.md, study/).
+# Only those are offered as "Essentials", and only when the axis file is actually on disk. Anything else
+# found in the read dirs (your own axes, the shipped H3 `mood`) is offered under "Custom".
+_CATALOG_PATH = os.path.join(_PACK_DIR, "axes_catalog.json")
+ESSENTIALS = "Essentials"
+CUSTOM = "Custom"
+_SEP = " · "
+_NO_AXES = "(no axes yet - build one with Helm · Make Axis)"
+_MODEL_FAMILY = {"NextDiT": "Z-Image", "MiniMaxH3Model": "MiniMax H3"}
+# Make Axis stores a conservative `safe_max` when it cannot verify one. Calibrated on the single measured
+# Z-Image reference: axis `z_room_density` held at safe_max 0.25, which is ~0.7% of the block-15 activation
+# norm (|mu| ~964, docs/EXPERIMENTS.md D/E); the wash starts at about twice that. 0.5% sits below it.
+SAFE_MAX_ACTIVATION_FRACTION = 0.005
+SAFE_MAX_CEILING = 10.0
+
+
+@lru_cache(maxsize=1)
+def _catalog():
+    try:
+        with open(_CATALOG_PATH, "r", encoding="utf-8") as f:
+            return {a["file"]: a for a in json.load(f).get("axes", [])}
+    except Exception:
+        return {}
+
+
+def _family(model_class):
+    return _MODEL_FAMILY.get(model_class, model_class or "unknown model")
+
+
+def _axis_names():
+    """Axis files visible in the read dirs, first directory wins (same rule as `_resolve_axis`)."""
+    seen, names = set(), []
+    for d in _READ_DIRS:
+        try:
+            entries = sorted(os.listdir(d))
+        except OSError:
+            continue
+        for ext in (AXIS_EXT, LEGACY_EXT):
+            for fn in entries:
+                if fn.endswith(ext) and fn[: -len(ext)] not in seen:
+                    seen.add(fn[: -len(ext)])
+                    names.append(fn[: -len(ext)])
+    return names
+
+
+def _dial_entries():
+    """Pure-ish (reads the axis dirs). The Dial's menu: Essentials first (catalog order), then Custom."""
+    cat = _catalog()
+    present = {}
+    for name in _axis_names():
+        meta = _read_meta(name) or {}
+        if meta.get("kind") in ("activation", "probe", "probe_report"):
+            continue  # recordings, not axes
+        present[name] = meta
+    entries = []
+    for name, c in cat.items():
+        meta = present.pop(name, None)
+        if meta is None:
+            continue
+        fam = c.get("family") or _family(c.get("model_class"))
+        entries.append({
+            "choice": f"{ESSENTIALS}{_SEP}{c['label']} ({fam})", "label": c["label"], "section": ESSENTIALS,
+            "file": name, "family": fam, "model": meta.get("model") or c.get("model_class"),
+            "safe_max": meta.get("safe_max") or c.get("fallback_safe_max"), "holds": True,
+            "evidence": c.get("evidence"),
+        })
+    for name in sorted(present):
+        meta = present[name]
+        fam = _family(meta.get("model")) if meta.get("model") else None
+        entries.append({
+            "choice": f"{CUSTOM}{_SEP}{name}", "label": name, "section": CUSTOM, "file": name,
+            "family": fam, "model": meta.get("model"), "safe_max": meta.get("safe_max"), "holds": None,
+            "evidence": None,
+        })
+    return entries
+
+
+def _dial_choices():
+    return [e["choice"] for e in _dial_entries()] or [_NO_AXES]
+
+
+def _dial_resolve(text):
+    """Menu text (or a bare axis name from Make Axis) -> entry dict with `file`, `label`, `safe_max`."""
+    text = (text or "").strip()
+    if not text or text == _NO_AXES:
+        raise ValueError("No axis selected and none found yet. Build one with 'Helm · Make Axis' "
+                         "(template: Helm 3 · Make your own axis), or drop an axis file into "
+                         f"{AXIS_DIR}.")
+    for e in _dial_entries():
+        if text in (e["choice"], e["file"]):
+            return e
+    bare = text.split(_SEP, 1)[1] if _SEP in text else text
+    for e in _dial_entries():
+        if bare in (e["label"], e["file"]):
+            return e
+    c = _catalog().get(bare) or next(
+        (a for a in _catalog().values()
+         if bare in (a["label"], f"{a['label']} ({a.get('family') or _family(a.get('model_class'))})")), None)
+    if c is not None:
+        bare = c["file"]
+        raise FileNotFoundError(
+            f"The axis '{c['label']}' is part of Helm's Essentials list but its file '{bare}{AXIS_EXT}' is "
+            f"not installed. Put it in {AXIS_DIR} (or build your own with 'Helm · Make Axis').")
+    raise FileNotFoundError(f"axis '{bare}' not found. Pick one from the Dial menu, or build it with "
+                            f"'Helm · Make Axis' first.")
+
+
+def _dial_strength(amount, safe_max):
+    """Pure. Amount 0..1 -> strength 0..safe_max. Out-of-range amounts are clamped, never extrapolated."""
+    if not safe_max or float(safe_max) <= 0:
+        raise ValueError("this axis records no safe range, so the Dial cannot scale it. Rebuild it with "
+                         "'Helm · Make Axis', or use 'Helm Lab · Apply axis' with a strength.")
+    a = min(1.0, max(0.0, float(amount)))
+    return a * float(safe_max)
+
+
+def _check_axis_fits_model(mp, entry, meta, vec):
+    """Plain-English refusal when the axis was made for another model than the one connected."""
+    loaded = _model_name(mp)
+    made_for = meta.get("model") or entry.get("model")
+    if made_for and loaded and made_for != loaded:
+        raise ValueError(
+            f"'{entry['label']}' was made for {_family(made_for)}, but the model connected to this Dial is "
+            f"{_family(loaded)}. Pick an axis marked ({_family(loaded)}) in the menu, or build one for this "
+            f"model with 'Helm · Make Axis'.")
+    calib = _calib_for(mp)
+    if calib and calib.get("dim") and int(calib["dim"]) != int(vec.shape[-1]):
+        raise ValueError(
+            f"'{entry['label']}' does not fit this model (axis width {int(vec.shape[-1])}, model width "
+            f"{int(calib['dim'])}). Pick an axis made for {_family(loaded)}, or build one with "
+            f"'Helm · Make Axis'.")
+
+
+# --- Make Axis: both contrast passes in one execution -----------------------------------------
+def _safe_axis_name(name):
+    out = "".join(c if (c.isalnum() or c in "-_") else "_" for c in str(name or "").strip()).strip("_")
+    if not out:
+        raise ValueError("give the axis a name (letters, numbers, - and _)")
+    return out
+
+
+def _axis_from_means(pos_mean, neg_mean):
+    """Pure. Diff-in-means: the same arithmetic as HelmVector (`mean_pos - mean_neg`)."""
+    if pos_mean.shape != neg_mean.shape:
+        raise ValueError(f"the two passes produced different shapes {tuple(pos_mean.shape)} vs "
+                         f"{tuple(neg_mean.shape)}")
+    return pos_mean.to(torch.float32) - neg_mean.to(torch.float32)
+
+
+def _estimate_safe_max(pos_mean, neg_mean, fraction=SAFE_MAX_ACTIVATION_FRACTION):
+    """Pure. A conservative, UNVERIFIED ceiling: the strength at which `strength*axis` is `fraction` of the
+    mean activation norm (see SAFE_MAX_ACTIVATION_FRACTION). It is an estimate, not a measurement."""
+    d = float(_axis_from_means(pos_mean, neg_mean).norm())
+    if d <= 1e-12:
+        raise ValueError("both prompts produced the same activations, so there is no direction to save. "
+                         "Make the two ideas differ more (change the words that carry the idea).")
+    mu = 0.5 * (float(pos_mean.norm()) + float(neg_mean.norm()))
+    return round(min(SAFE_MAX_CEILING, fraction * mu / d), 4) or 0.0001
+
+
+def _record_mean(model, block, module, model_name, cond_only, drive):
+    """Run `drive(patched_model)` once with a read-only collect hook at `block`; return the [dim] mean.
+    Same hook + wrapper machinery as HelmCollect, so the numbers are the ones Collect would write."""
+    mp = model.clone()
+    acc = {"sum": None, "n": 0, "last": False}
+    fn = _make_collect_hook(acc, "(make-axis)", block, module, model_name, cond_only, "none")
+    _add_hook(mp, {"block": int(block), "fn": fn, "cond_only": bool(cond_only), "start": 0.0, "end": 1.0})
+    _install_wrapper(mp)
+    drive(mp)
+    if acc["sum"] is None or acc["n"] <= 0:
+        raise RuntimeError(f"no activations were recorded at block {block}. The sampler never reached that "
+                           f"block; check the block number and that the model is the one you sample with.")
+    return acc["sum"] / acc["n"]
+
+
+def _sample_for_axis(mp, clip, text, latent, steps, seed, cfg):
+    """The real driver: encode `text` and run a short sample through ComfyUI's own KSampler path. Imported
+    lazily because `nodes` is ComfyUI's core module, which exists only inside a running ComfyUI."""
+    import nodes as core
+    enc = core.CLIPTextEncode()
+    positive = enc.encode(clip, text)[0]
+    negative = enc.encode(clip, "")[0]
+    core.common_ksampler(mp, int(seed), int(steps), float(cfg), "euler", "simple", positive, negative,
+                         latent, denoise=1.0)
+
+
 # --- nodes ---------------------------------------------------------------------------------
 class HelmCollect:
     @classmethod
@@ -592,7 +785,7 @@ class HelmCollect:
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
-    CATEGORY = "Helm"
+    CATEGORY = "Helm/Lab"
 
     def run(self, model, tag, block, cond_only=False):
         _axes()
@@ -623,7 +816,7 @@ class HelmVector:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("axis",)
     FUNCTION = "run"
-    CATEGORY = "Helm"
+    CATEGORY = "Helm/Lab"
 
     def run(self, pos_tag, neg_tag, axis, safe_max=0.0):
         p, n = _resolve_axis(pos_tag), _resolve_axis(neg_tag)
@@ -679,7 +872,7 @@ class HelmApply:
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
-    CATEGORY = "Helm"
+    CATEGORY = "Helm/Lab"
 
     def run(self, model, axis, block, strength, dial=0.0, cond_only=False, start_percent=0.0, end_percent=1.0,
             mode="push", mask="", layout="none", grid="", clamp_k=1.0, mask_offset=0):
@@ -747,6 +940,118 @@ class HelmApply:
         return (mp,)
 
 
+class HelmDial:
+    """The everyday control: pick an idea by name, move Amount. Delegates to HelmApply (same hook)."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "model": ("MODEL", {"tooltip": "The model to steer. Connect it between your model loader and the sampler."}),
+            "axis": (_dial_choices(), {"tooltip": "The idea this dial moves (for example 'Less clutter'). "
+                                       "'Essentials' are ideas Helm's own benchmark shows still look right when moved; "
+                                       "'Custom' are axes you made or dropped in, not benchmarked. The model name in "
+                                       "brackets must match the model you loaded."}),
+            "amount": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01, "display": "slider",
+                                 "tooltip": "How much of the idea. 0 = off (your image is untouched). 1 = the strongest "
+                                            "setting that is still safe for this axis. Start in the middle."}),
+        }, "optional": {
+            "axis_from": ("STRING", {"default": "", "forceInput": True,
+                                     "tooltip": "Optional. Connect the 'axis' output of Helm · Make Axis here to dial the axis you "
+                                                "just made without picking it from the menu."}),
+        }}
+    RETURN_TYPES = ("MODEL",)
+    RETURN_NAMES = ("model",)
+    FUNCTION = "run"
+    CATEGORY = "Helm"
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, axis):
+        # An axis made by Make Axis in this very run does not exist when the prompt is validated, so the menu
+        # list cannot be checked up front. Existence is checked in run() with a readable message instead.
+        return True if str(axis or "").strip() else "choose an axis"
+
+    def run(self, model, axis, amount, axis_from=""):
+        entry = _dial_resolve(axis_from if str(axis_from or "").strip() else axis)
+        name = entry["file"]
+        vec = _load_axis(_resolve_axis(name))
+        meta = _read_meta(name) or {}
+        _check_axis_fits_model(model, entry, meta, vec)
+        safe = meta.get("safe_max") or entry.get("safe_max")
+        strength = _dial_strength(amount, safe)
+        block = meta.get("block")
+        if block is None:
+            calib = _calib_for(model)
+            block = calib.get("default_block") if calib else None
+        if block is None:
+            raise ValueError(f"'{entry['label']}' does not record which block it was made at. Rebuild it "
+                             f"with 'Helm · Make Axis'.")
+        if str(meta.get("safe_max_source") or "").startswith("estimate"):
+            print(f"[helm] '{entry['label']}' was made by Make Axis: its safe range is an estimate, not a "
+                  f"measurement. Compare Before | After.")
+        print(f"[helm] Dial '{entry['label']}': amount {float(amount):.2f} -> strength {strength:.4f} "
+              f"(safe range 0..{float(safe):g})")
+        return HelmApply().run(model, name, int(block), strength)
+
+
+class HelmMakeAxis:
+    """Two prompts in, one axis file out. Records both contrast passes inside this single execution."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "model": ("MODEL", {"tooltip": "The model you will render with, after any sampling-shift node."}),
+            "clip": ("CLIP", {"tooltip": "The text encoder of the same model."}),
+            "latent": ("LATENT", {"tooltip": "An empty latent. Its size is used for the two short test renders; "
+                                  "a small size (512) is enough and faster."}),
+            "with_idea": ("STRING", {"multiline": True, "default": "a quiet street at dawn, thick fog, documentary photography",
+                                     "tooltip": "A prompt that HAS the idea. Keep everything else the same as the other prompt."}),
+            "without_idea": ("STRING", {"multiline": True, "default": "a quiet street at dawn, clear air, documentary photography",
+                                        "tooltip": "The same prompt WITHOUT the idea. Only the idea should differ."}),
+            "name": ("STRING", {"default": "my_axis",
+                                "tooltip": "Name of the axis. It is saved in your user/steer folder and then appears in the Dial menu under Custom."}),
+            "steps": ("INT", {"default": 4, "min": 1, "max": 30,
+                              "tooltip": "Sampling steps for each of the two test renders. A few are enough; the images are thrown away."}),
+        }, "optional": {
+            "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff,
+                             "tooltip": "Same seed for both test renders so only the prompt differs."}),
+            "cfg": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 30.0, "step": 0.1,
+                              "tooltip": "Guidance for the test renders. Use the value your model normally uses (1.0 for turbo models)."}),
+            "block": ("INT", {"default": -1, "min": -1, "max": 512,
+                              "tooltip": "-1 = the recommended block for this model (calibration.json), or the middle of the model if it is not calibrated."}),
+        }}
+    RETURN_TYPES = ("MODEL", "STRING")
+    RETURN_NAMES = ("model", "axis")
+    FUNCTION = "run"
+    CATEGORY = "Helm"
+    OUTPUT_NODE = True
+
+    def run(self, model, clip, latent, with_idea, without_idea, name, steps=4, seed=0, cfg=1.0, block=-1,
+            _drive=None):
+        axis_name = _safe_axis_name(name)
+        entry = _calib_for(model)
+        module = entry.get("module") if entry else None
+        blocks, module = _find_blocks(model, which=module)
+        if int(block) < 0:
+            block = int(entry["default_block"]) if entry and entry.get("default_block") is not None else len(blocks) // 2
+        if int(block) >= len(blocks):
+            raise ValueError(f"block {int(block)} does not exist: this model has {len(blocks)} blocks (0-{len(blocks) - 1}).")
+        model_name = _model_name(model)
+        drive = _drive or (lambda mp, text: _sample_for_axis(mp, clip, text, latent, steps, seed, cfg))
+        pos = _record_mean(model, block, module, model_name, False, lambda mp: drive(mp, with_idea))
+        neg = _record_mean(model, block, module, model_name, False, lambda mp: drive(mp, without_idea))
+        vec = _axis_from_means(pos, neg)
+        safe = _estimate_safe_max(pos, neg)
+        _save_axis(axis_name, vec, {
+            "kind": "axis", "dim": int(vec.shape[0]), "block": int(block), "model": model_name, "module": module,
+            "norm": round(float(vec.norm()), 3), "safe_max": safe,
+            "safe_max_source": "estimate: 0.5% of the activation norm, not verified by renders",
+            "from": {"pos": with_idea, "neg": without_idea}, "label": str(name).strip(),
+            "made_by": "HelmMakeAxis"})
+        print(f"[helm] Make Axis: saved '{axis_name}' (block {int(block)}, dim {vec.shape[0]}) -> "
+              f"{_axis_path(axis_name)}. Its safe range 0..{safe} is an ESTIMATE; compare Before | After.")
+        return (model, axis_name)
+
+
 class HelmProbe:
     @classmethod
     def INPUT_TYPES(cls):
@@ -760,7 +1065,7 @@ class HelmProbe:
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
-    CATEGORY = "Helm"
+    CATEGORY = "Helm/Lab"
 
     def run(self, model, tag="probe_pos", cond_only=False):
         _axes()
@@ -792,7 +1097,7 @@ class HelmProbeReport:
     RETURN_TYPES = ("INT",)
     RETURN_NAMES = ("peak_block",)
     FUNCTION = "run"
-    CATEGORY = "Helm"
+    CATEGORY = "Helm/Lab"
 
     def run(self, pos_tag="probe_pos", neg_tag="probe_neg", top=5):
         P = _load_tensor(_resolve_axis(pos_tag))
@@ -823,12 +1128,15 @@ class HelmProbeReport:
         return (int(peak["block"]),)
 
 
-NODE_CLASS_MAPPINGS = {"HelmCollect": HelmCollect, "HelmVector": HelmVector, "HelmApply": HelmApply,
+NODE_CLASS_MAPPINGS = {"HelmDial": HelmDial, "HelmMakeAxis": HelmMakeAxis,
+                       "HelmCollect": HelmCollect, "HelmVector": HelmVector, "HelmApply": HelmApply,
                        "HelmProbe": HelmProbe, "HelmProbeReport": HelmProbeReport}
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "HelmCollect": "Helm Collect (read activation)",
-    "HelmVector": "Helm Axis (diff-in-means)",
-    "HelmApply": "Helm Apply (strength x axis)",
-    "HelmProbe": "Helm Probe (read all blocks)",
-    "HelmProbeReport": "Helm Probe Report (block separation profile)",
+    "HelmDial": "Helm \u00b7 Dial",
+    "HelmMakeAxis": "Helm \u00b7 Make Axis",
+    "HelmCollect": "Helm Lab \u00b7 Record activations",
+    "HelmVector": "Helm Lab \u00b7 Build axis from two recordings",
+    "HelmApply": "Helm Lab \u00b7 Apply axis (manual strength)",
+    "HelmProbe": "Helm Lab \u00b7 Probe every block",
+    "HelmProbeReport": "Helm Lab \u00b7 Probe report",
 }

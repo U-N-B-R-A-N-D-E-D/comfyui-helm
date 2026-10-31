@@ -221,10 +221,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "Helm on Krea-2 Turbo (Text to Image).\n\nOfficial Krea-2 Turbo blueprint with HelmApply inserted between the model switch and the KSampler.\nBuild a Krea2 axis first with krea2_helm_collect; no shipped axis is calibrated for Krea2.\nBlock/strength are placeholders - confirm with a sweep (see calibration.json)."
+        "text": "OLDER TEMPLATE (for experts). New here? Open 'Helm 1 - Start here' instead.\n\nKrea-2 Turbo text to image with Helm steering.\nThe Helm control lives INSIDE the grouped node 'Text to Image (Krea-2 Turbo)': open it (click the icon in its corner) to move it.\nNo axis for Krea 2 ships with Helm. Build one first with krea2_helm_collect, then type its name into the control.\nStrength values here are placeholders: confirm with a couple of test renders."
       },
       "widgets_values": [
-        "Helm on Krea-2 Turbo (Text to Image).\n\nOfficial Krea-2 Turbo blueprint with HelmApply inserted between the model switch and the KSampler.\nBuild a Krea2 axis first with krea2_helm_collect; no shipped axis is calibrated for Krea2.\nBlock/strength are placeholders - confirm with a sweep (see calibration.json)."
+        "OLDER TEMPLATE (for experts). New here? Open 'Helm 1 - Start here' instead.\n\nKrea-2 Turbo text to image with Helm steering.\nThe Helm control lives INSIDE the grouped node 'Text to Image (Krea-2 Turbo)': open it (click the icon in its corner) to move it.\nNo axis for Krea 2 ships with Helm. Build one first with krea2_helm_collect, then type its name into the control.\nStrength values here are placeholders: confirm with a couple of test renders."
       ]
     }
   ],

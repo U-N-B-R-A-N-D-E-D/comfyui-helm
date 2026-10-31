@@ -993,10 +993,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "Helm on MiniMax H3 (text-to-video).\n\nUNETLoader -> HelmApply 'mood' -> HelmApply 'density' -> MiniMaxH3Director -> CreateVideo.\n\nShips with 'mood' and 'density' in example_axes/ (block 20, safe_max 0.3).\nTo build your own: HelmCollect x2 (tag 'pos' then 'neg') + HelmVector -> ComfyUI/user/steer/<name>.safetensors.\nThe 'axis' name in HelmApply must match that file. block 20, strength 0.01-0.3 (higher washes the frame; see calibration.json).\n\nNeeds the MiniMax H3 models (4 shown missing). Plain text-to-video works with strength 0."
+        "text": "OLDER TEMPLATE (for experts). New here? Open 'Helm 2 - Video (MiniMax H3)' instead.\n\nText to video on MiniMax H3 with TWO Helm controls stacked: 'mood' (muted tones) and 'density' (less clutter).\nEach control has a strength; keep each between 0 and 0.3. Higher than 0.3 washes the picture out.\nSet a strength to 0 to turn that control off.\nNeeds the MiniMax H3 models and the MiniMax H3 Director add-on."
       },
       "widgets_values": [
-        "Helm on MiniMax H3 (text-to-video).\n\nUNETLoader -> HelmApply 'mood' -> HelmApply 'density' -> MiniMaxH3Director -> CreateVideo.\n\nShips with 'mood' and 'density' in example_axes/ (block 20, safe_max 0.3).\nTo build your own: HelmCollect x2 (tag 'pos' then 'neg') + HelmVector -> ComfyUI/user/steer/<name>.safetensors.\nThe 'axis' name in HelmApply must match that file. block 20, strength 0.01-0.3 (higher washes the frame; see calibration.json).\n\nNeeds the MiniMax H3 models (4 shown missing). Plain text-to-video works with strength 0."
+        "OLDER TEMPLATE (for experts). New here? Open 'Helm 2 - Video (MiniMax H3)' instead.\n\nText to video on MiniMax H3 with TWO Helm controls stacked: 'mood' (muted tones) and 'density' (less clutter).\nEach control has a strength; keep each between 0 and 0.3. Higher than 0.3 washes the picture out.\nSet a strength to 0 to turn that control off.\nNeeds the MiniMax H3 models and the MiniMax H3 Director add-on."
       ]
     }
   ],

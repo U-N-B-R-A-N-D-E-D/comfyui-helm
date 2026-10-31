@@ -194,10 +194,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "Helm on LTX (Text to Video, LTX-2.3).\n\nThe official LTX t2v blueprint with HelmApply inserted between the model LoRA and the\nCFGGuiders (inside this subgraph): CheckpointLoader -> LoraLoaderModelOnly -> HelmApply -> CFGGuider.\n\nBuild an LTX axis first; no shipped axis is calibrated for LTX. Set 'axis' to that axis.\nstrength ~0.15, block 20 to start.\nUNTESTED ON LTX: LTX weights were not at hand; block/strength are placeholders. Verify with a sweep."
+        "text": "OLDER TEMPLATE (for experts, UNTESTED). New here? Open 'Helm 2 - Video (MiniMax H3)' instead.\n\nLTX-2.3 text to video with Helm steering.\nThe Helm control lives INSIDE the grouped node 'Text to Video (LTX-2.3)': open it (click the icon in its corner) to move it.\nNo axis for LTX ships with Helm: build one first, then type its name into the control.\nThis has not been tested on LTX (no weights were available). Treat strength 0.15 as a starting guess and compare renders."
       },
       "widgets_values": [
-        "Helm on LTX (Text to Video, LTX-2.3).\n\nThe official LTX t2v blueprint with HelmApply inserted between the model LoRA and the\nCFGGuiders (inside this subgraph): CheckpointLoader -> LoraLoaderModelOnly -> HelmApply -> CFGGuider.\n\nBuild an LTX axis first; no shipped axis is calibrated for LTX. Set 'axis' to that axis.\nstrength ~0.15, block 20 to start.\nUNTESTED ON LTX: LTX weights were not at hand; block/strength are placeholders. Verify with a sweep."
+        "OLDER TEMPLATE (for experts, UNTESTED). New here? Open 'Helm 2 - Video (MiniMax H3)' instead.\n\nLTX-2.3 text to video with Helm steering.\nThe Helm control lives INSIDE the grouped node 'Text to Video (LTX-2.3)': open it (click the icon in its corner) to move it.\nNo axis for LTX ships with Helm: build one first, then type its name into the control.\nThis has not been tested on LTX (no weights were available). Treat strength 0.15 as a starting guess and compare renders."
       ]
     }
   ],

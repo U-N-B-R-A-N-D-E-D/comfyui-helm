@@ -18,3 +18,4 @@ node.zip
 *.webm
 .env
 .gitignore
+tools/

@@ -1,0 +1,1221 @@
+{
+  "id": "cda3c834-ac18-55a5-9455-5718370aefc9",
+  "revision": 0,
+  "last_node_id": 18,
+  "last_link_id": 22,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "CLIPTextEncode",
+      "pos": [
+        20,
+        60
+      ],
+      "size": [
+        560,
+        240
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 2
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "text"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            3,
+            6,
+            11
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "the same room packed with server racks, cables and crates, documentary photography"
+      ],
+      "title": "Your prompt (edit me)",
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 2,
+      "type": "EmptySD3LatentImage",
+      "pos": [
+        20,
+        340
+      ],
+      "size": [
+        300,
+        150
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "width"
+          }
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "height"
+          }
+        },
+        {
+          "name": "batch_size",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "batch_size"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            8,
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptySD3LatentImage"
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        1
+      ],
+      "title": "Image size"
+    },
+    {
+      "id": 3,
+      "type": "PrimitiveInt",
+      "pos": [
+        340,
+        340
+      ],
+      "size": [
+        240,
+        100
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "value",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "value"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            9,
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PrimitiveInt"
+      },
+      "widgets_values": [
+        11,
+        "fixed"
+      ],
+      "title": "Seed (same for Before and After)"
+    },
+    {
+      "id": 4,
+      "type": "UNETLoader",
+      "pos": [
+        20,
+        720
+      ],
+      "size": [
+        320,
+        100
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "unet_name",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "unet_name"
+          }
+        },
+        {
+          "name": "weight_dtype",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "weight_dtype"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "z_image_turbo_bf16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "widgets_values": [
+        "z_image_turbo_bf16.safetensors",
+        "default"
+      ],
+      "title": "Z-Image model"
+    },
+    {
+      "id": 5,
+      "type": "CLIPLoader",
+      "pos": [
+        20,
+        850
+      ],
+      "size": [
+        320,
+        130
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip_name",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "clip_name"
+          }
+        },
+        {
+          "name": "type",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "type"
+          }
+        },
+        {
+          "name": "device",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "device"
+          },
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen_3_4b.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen_3_4b.safetensors",
+        "lumina2",
+        "default"
+      ],
+      "title": "Text encoder"
+    },
+    {
+      "id": 6,
+      "type": "VAELoader",
+      "pos": [
+        20,
+        1010
+      ],
+      "size": [
+        320,
+        90
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "vae_name",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "vae_name"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            16,
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "ae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "ae.safetensors"
+      ],
+      "title": "Image decoder (VAE)"
+    },
+    {
+      "id": 7,
+      "type": "ModelSamplingAuraFlow",
+      "pos": [
+        380,
+        720
+      ],
+      "size": [
+        300,
+        100
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        },
+        {
+          "name": "shift",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "shift"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            4,
+            5
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ModelSamplingAuraFlow"
+      },
+      "widgets_values": [
+        3
+      ],
+      "title": "Sampling shift (leave as is)"
+    },
+    {
+      "id": 8,
+      "type": "ConditioningZeroOut",
+      "pos": [
+        380,
+        860
+      ],
+      "size": [
+        300,
+        70
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            7,
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ConditioningZeroOut"
+      },
+      "widgets_values": [],
+      "title": "Empty negative prompt"
+    },
+    {
+      "id": 9,
+      "type": "Note",
+      "pos": [
+        800,
+        60
+      ],
+      "size": [
+        520,
+        170
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "Note",
+        "text": "1) write your prompt\n2) move Amount\n3) Run"
+      },
+      "widgets_values": [
+        "1) write your prompt\n2) move Amount\n3) Run"
+      ],
+      "title": "Helm 1 · Start here (Z-Image)",
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 10,
+      "type": "HelmDial",
+      "pos": [
+        800,
+        270
+      ],
+      "size": [
+        520,
+        170
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 4
+        },
+        {
+          "name": "axis",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "axis"
+          }
+        },
+        {
+          "name": "amount",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "amount"
+          }
+        },
+        {
+          "name": "axis_from",
+          "type": "STRING",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            10
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HelmDial",
+        "cnr_id": "comfyui-helm"
+      },
+      "widgets_values": [
+        "Essentials · Less clutter (Z-Image)",
+        0.5
+      ],
+      "title": "Helm · Dial",
+      "color": "#6b3300",
+      "bgcolor": "#a85200"
+    },
+    {
+      "id": 11,
+      "type": "Note",
+      "pos": [
+        800,
+        470
+      ],
+      "size": [
+        520,
+        140
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "Note",
+        "text": "Amount 0 = Helm off. Amount 1 = the strongest setting that still looks right for this idea.\nBefore = your prompt with the Dial off. After = the same prompt and seed with your Amount.\nOnly the picture changes along one idea; your prompt is not rewritten."
+      },
+      "widgets_values": [
+        "Amount 0 = Helm off. Amount 1 = the strongest setting that still looks right for this idea.\nBefore = your prompt with the Dial off. After = the same prompt and seed with your Amount.\nOnly the picture changes along one idea; your prompt is not rewritten."
+      ],
+      "title": "What the Dial does",
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 12,
+      "type": "KSampler",
+      "pos": [
+        1420,
+        60
+      ],
+      "size": [
+        320,
+        360
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 5
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 6
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 7
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 8
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "link": 9,
+          "widget": {
+            "name": "seed"
+          }
+        },
+        {
+          "name": "steps",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "steps"
+          }
+        },
+        {
+          "name": "cfg",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "cfg"
+          }
+        },
+        {
+          "name": "sampler_name",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "sampler_name"
+          }
+        },
+        {
+          "name": "scheduler",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "scheduler"
+          }
+        },
+        {
+          "name": "denoise",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "denoise"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        0,
+        "fixed",
+        8,
+        1,
+        "res_multistep",
+        "simple",
+        1
+      ],
+      "title": "Before (Dial off = Amount 0)"
+    },
+    {
+      "id": 13,
+      "type": "KSampler",
+      "pos": [
+        1420,
+        480
+      ],
+      "size": [
+        320,
+        360
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 10
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 11
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 12
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 13
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "link": 14,
+          "widget": {
+            "name": "seed"
+          }
+        },
+        {
+          "name": "steps",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "steps"
+          }
+        },
+        {
+          "name": "cfg",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "cfg"
+          }
+        },
+        {
+          "name": "sampler_name",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "sampler_name"
+          }
+        },
+        {
+          "name": "scheduler",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "scheduler"
+          }
+        },
+        {
+          "name": "denoise",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "denoise"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        0,
+        "fixed",
+        8,
+        1,
+        "res_multistep",
+        "simple",
+        1
+      ],
+      "title": "After (your Amount)"
+    },
+    {
+      "id": 14,
+      "type": "VAEDecode",
+      "pos": [
+        1780,
+        60
+      ],
+      "size": [
+        200,
+        60
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 15
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            19
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": [],
+      "title": "Decode Before"
+    },
+    {
+      "id": 15,
+      "type": "VAEDecode",
+      "pos": [
+        1780,
+        480
+      ],
+      "size": [
+        200,
+        60
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 17
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 18
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            20,
+            22
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": [],
+      "title": "Decode After"
+    },
+    {
+      "id": 16,
+      "type": "ImageStitch",
+      "pos": [
+        2020,
+        60
+      ],
+      "size": [
+        300,
+        190
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 19
+        },
+        {
+          "name": "direction",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "direction"
+          }
+        },
+        {
+          "name": "match_image_size",
+          "type": "BOOLEAN",
+          "link": null,
+          "widget": {
+            "name": "match_image_size"
+          }
+        },
+        {
+          "name": "spacing_width",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "spacing_width"
+          }
+        },
+        {
+          "name": "spacing_color",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "spacing_color"
+          }
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 20,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            21
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageStitch"
+      },
+      "widgets_values": [
+        "right",
+        true,
+        0,
+        "white"
+      ],
+      "title": "Before | After (side by side)"
+    },
+    {
+      "id": 17,
+      "type": "PreviewImage",
+      "pos": [
+        2020,
+        300
+      ],
+      "size": [
+        640,
+        560
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 21
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "title": "Left: Before    Right: After"
+    },
+    {
+      "id": 18,
+      "type": "SaveImage",
+      "pos": [
+        2360,
+        60
+      ],
+      "size": [
+        300,
+        200
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 22
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "filename_prefix"
+          }
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "helm/after"
+      ],
+      "title": "Save the After image"
+    }
+  ],
+  "links": [
+    [
+      1,
+      4,
+      0,
+      7,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      5,
+      0,
+      1,
+      0,
+      "CLIP"
+    ],
+    [
+      3,
+      1,
+      0,
+      8,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      4,
+      7,
+      0,
+      10,
+      0,
+      "MODEL"
+    ],
+    [
+      5,
+      7,
+      0,
+      12,
+      0,
+      "MODEL"
+    ],
+    [
+      6,
+      1,
+      0,
+      12,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      7,
+      8,
+      0,
+      12,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      8,
+      2,
+      0,
+      12,
+      3,
+      "LATENT"
+    ],
+    [
+      9,
+      3,
+      0,
+      12,
+      4,
+      "INT"
+    ],
+    [
+      10,
+      10,
+      0,
+      13,
+      0,
+      "MODEL"
+    ],
+    [
+      11,
+      1,
+      0,
+      13,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      12,
+      8,
+      0,
+      13,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      13,
+      2,
+      0,
+      13,
+      3,
+      "LATENT"
+    ],
+    [
+      14,
+      3,
+      0,
+      13,
+      4,
+      "INT"
+    ],
+    [
+      15,
+      12,
+      0,
+      14,
+      0,
+      "LATENT"
+    ],
+    [
+      16,
+      6,
+      0,
+      14,
+      1,
+      "VAE"
+    ],
+    [
+      17,
+      13,
+      0,
+      15,
+      0,
+      "LATENT"
+    ],
+    [
+      18,
+      6,
+      0,
+      15,
+      1,
+      "VAE"
+    ],
+    [
+      19,
+      14,
+      0,
+      16,
+      0,
+      "IMAGE"
+    ],
+    [
+      20,
+      15,
+      0,
+      16,
+      5,
+      "IMAGE"
+    ],
+    [
+      21,
+      16,
+      0,
+      17,
+      0,
+      "IMAGE"
+    ],
+    [
+      22,
+      15,
+      0,
+      18,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1 · Write your prompt",
+      "bounding": [
+        0,
+        0,
+        600,
+        600
+      ],
+      "color": "#3f8e5e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "2 · Models (leave as they are)",
+      "bounding": [
+        0,
+        660,
+        720,
+        460
+      ],
+      "color": "#8A8A8A",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "3 · The Dial: move Amount",
+      "bounding": [
+        780,
+        0,
+        560,
+        640
+      ],
+      "color": "#b06634",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "4 · Result: Before | After",
+      "bounding": [
+        1400,
+        0,
+        1280,
+        900
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.5,
+      "offset": [
+        60,
+        40
+      ]
+    }
+  },
+  "version": 0.4
+}

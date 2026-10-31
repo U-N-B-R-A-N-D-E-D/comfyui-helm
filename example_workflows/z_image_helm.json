@@ -161,10 +161,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "Helm on Z-Image-Turbo (Text to Image).\n\nOfficial Z-Image-Turbo blueprint with HelmApply inserted between ModelSamplingAuraFlow and the KSampler:\nUNETLoader -> ModelSamplingAuraFlow -> HelmApply -> KSampler.\n\nZ-Image: layers 9-21 of 30, dim 3840, strength measured 0.5-3; the shipped room-density axis is safe at 0.25 (wash at 0.5).\nSet 'axis' to a built axis (see example_axes/)."
+        "text": "Helm on Z-Image-Turbo (Text to Image).\n\nOfficial Z-Image-Turbo blueprint with HelmApply inserted between ModelSamplingAuraFlow and the KSampler:\nUNETLoader -> ModelSamplingAuraFlow -> HelmApply -> KSampler.\n\nDefault axis: z_room_density (block 15, dim 3840, safe_max 0.25).\nZ-Image layers 9-21 of 30; model-level strength 0.5-3, but the shipped room-density axis clamps at 0.25 (wash at 0.5).\nRun at 0.0, 0.10, 0.25 with the same prompt and seed."
       },
       "widgets_values": [
-        "Helm on Z-Image-Turbo (Text to Image).\n\nOfficial Z-Image-Turbo blueprint with HelmApply inserted between ModelSamplingAuraFlow and the KSampler:\nUNETLoader -> ModelSamplingAuraFlow -> HelmApply -> KSampler.\n\nZ-Image: layers 9-21 of 30, dim 3840, strength measured 0.5-3; the shipped room-density axis is safe at 0.25 (wash at 0.5).\nSet 'axis' to a built axis (see example_axes/)."
+        "Helm on Z-Image-Turbo (Text to Image).\n\nOfficial Z-Image-Turbo blueprint with HelmApply inserted between ModelSamplingAuraFlow and the KSampler:\nUNETLoader -> ModelSamplingAuraFlow -> HelmApply -> KSampler.\n\nDefault axis: z_room_density (block 15, dim 3840, safe_max 0.25).\nZ-Image layers 9-21 of 30; model-level strength 0.5-3, but the shipped room-density axis clamps at 0.25 (wash at 0.5).\nRun at 0.0, 0.10, 0.25 with the same prompt and seed."
       ]
     }
   ],

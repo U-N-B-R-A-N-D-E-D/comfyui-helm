@@ -700,12 +700,21 @@ class HelmApply:
             block = int(auto)
 
         safe = meta.get("safe_max")
-        if dial and safe:
-            strength = round(dial * float(safe), 4)
-        if safe and abs(strength) > float(safe):
-            print(f"[helm] strength {strength} exceeds the verified safe_max {safe} for '{axis}' -> clamped to {safe}. "
-                  f"Past the band the frame washes out.")
-            strength = float(safe) if strength > 0 else -float(safe)
+        safe = float(safe) if safe else None
+        if not safe:
+            if dial:
+                print(f"[helm] dial={dial} ignored: axis '{axis}' has no safe_max. "
+                      f"Use strength directly, or rebuild the axis with a safe_max.")
+            elif strength:
+                print(f"[helm] warning: axis '{axis}' has no safe_max; strength={strength} is unclamped. "
+                      f"Rebuild the axis with a safe_max to enable the verified band.")
+        else:
+            if dial:
+                strength = round(dial * safe, 4)
+            if abs(strength) > safe:
+                print(f"[helm] strength {strength} exceeds the verified safe_max {safe} for '{axis}' -> clamped to {safe}. "
+                      f"Past the band the frame washes out.")
+                strength = safe if strength > 0 else -safe
 
         token_mask = None
         if mask:
@@ -721,6 +730,10 @@ class HelmApply:
 
         mp = model.clone()
         entry = _calib_for(mp)
+        if entry and entry.get("dim") and int(entry["dim"]) != int(vec.shape[-1]):
+            raise ValueError(
+                f"axis '{axis}' dim {int(vec.shape[-1])} != calibrated model dim {int(entry['dim'])} "
+                f"for {_model_name(mp)}; rebuild the axis on this model or pick a compatible one.")
         fn = _make_apply_hook(vec, strength, axis, cond_only, meta_path,
                               mode=mode, token_mask=token_mask, clamp_k=clamp_k, debug=True,
                               mask_offset=int(mask_offset))

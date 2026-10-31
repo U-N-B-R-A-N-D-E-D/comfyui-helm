@@ -1,14 +1,16 @@
 """Draws the preview images. No GPU: it only re-labels and re-crops frames that are already in the repo.
 
-    python tools/render_previews.py     (needs Pillow)
+    python tools/render_previews.py     (needs Pillow; re-encodes the stored previews, so run it only when they change)
+    python tools/render_previews.py --chain-only     (redraws only the drawn thumbnails of templates 3 to 6)
 
 1. web/previews/*.webp: real Helm renders, Before on the left and After on the right. The picture is the top
    FRAME_H rows; the strip underneath is only a label. The strip is repainted with plain words ("Before" /
    "After (Amount 1.0)"). The technical numbers (safe_max, strength) live in docs/AXES.md, not on the image.
 2. example_workflows/<template name>.jpg: the template browser's card thumbnail. ComfyUI looks for
    "<template name>.jpg" next to the workflow, and the card is square (the official templates use 400x400).
-   Templates 1 and 2 reuse the frames from step 1; template 3 is a layout drawing, not a render, because its
-   axis is made on the spot.
+   Templates 1 and 2 reuse the frames from step 1; templates 3 to 6 are layout drawings, not renders: template 3's
+   axis is made on the spot, and templates 4 to 6 teach a chain of nodes whose result depends on the idea you pick
+   (the Axis -> Apply default, amount 0.5, was never rendered as a Before | After pair, so no frames are borrowed).
 
 Output carries no metadata (no EXIF, no profile, no comments).
 """
@@ -120,14 +122,115 @@ def thumb_make_axis():
     return out
 
 
+# Helm role colors, the same as the template nodes and web/helm_axes.js: (fill, outline)
+ROLE = {
+    "axis": ((91, 58, 128), (126, 87, 163)),
+    "shape": ((168, 82, 0), (176, 102, 52)),
+    "mix": ((47, 95, 148), (63, 120, 158)),
+    "apply": ((85, 85, 85), (138, 138, 138)),
+    "edit": ((53, 83, 53), (63, 142, 94)),
+}
+ARROW = (150, 150, 155)
+
+
+def role_card(d, box, role, title, sub=None, tf=None, sf=None):
+    fill, outline = ROLE[role]
+    d.rounded_rectangle(box, radius=16, fill=fill, outline=outline, width=3)
+    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    if sub:
+        d.text((cx, cy - 11), title, fill=(255, 255, 255), font=tf or font(24, True), anchor="mm")
+        d.text((cx, cy + 15), sub, fill=(236, 236, 238), font=sf or font(18), anchor="mm")
+    else:
+        d.text((cx, cy), title, fill=(255, 255, 255), font=tf or font(24, True), anchor="mm")
+
+
+def down_arrow(d, x, y0, y1):
+    d.line([(x, y0), (x, y1 - 12)], fill=ARROW, width=4)
+    d.polygon([(x - 10, y1 - 14), (x + 10, y1 - 14), (x, y1)], fill=ARROW)
+
+
+def thumb_chain():
+    """Template 4: Axis -> Apply, the two-node minimal path."""
+    out = Image.new("RGB", (THUMB, THUMB), (24, 24, 27))
+    d = ImageDraw.Draw(out)
+    d.text((256, 52), "Axis, then Apply", fill=(255, 255, 255), font=font(36, True), anchor="mm")
+    role_card(d, (76, 100, 436, 200), "axis", "Helm \u00b7 Axis", "Light angle (raking)")
+    down_arrow(d, 256, 206, 262)
+    role_card(d, (76, 268, 436, 358), "apply", "Helm \u00b7 Apply")
+    down_arrow(d, 256, 364, 410)
+    d.rounded_rectangle((136, 414, 376, 462), radius=14, fill=(40, 40, 44), outline=(90, 90, 96), width=2)
+    d.text((256, 438), "your sampler", fill=(210, 210, 214), font=font(22), anchor="mm")
+    d.text((256, 490), "two nodes, one idea", fill=ARROW, font=font(20), anchor="mm")
+    return out
+
+
+def thumb_mix():
+    """Template 5: Axis x 3 -> Mix -> Shape -> Apply."""
+    out = Image.new("RGB", (THUMB, THUMB), (24, 24, 27))
+    d = ImageDraw.Draw(out)
+    f = font(20, True)
+    for i, label in enumerate(("light", "clutter", "aisle")):
+        x0 = 28 + i * 156
+        role_card(d, (x0, 28, x0 + 140, 92), "axis", "Axis", label, f, font(17))
+        d.line([(x0 + 70, 98), (x0 + 70, 118), (256, 130)], fill=ARROW, width=3)
+    down_arrow(d, 256, 124, 150)
+    role_card(d, (96, 150, 416, 214), "mix", "Helm \u00b7 Mix", "experimental", font(24, True), font(16))
+    down_arrow(d, 256, 220, 262)
+    role_card(d, (96, 262, 416, 326), "shape", "Helm \u00b7 Shape", "\u221240% (less), late steps", font(24, True), font(16))
+    down_arrow(d, 256, 332, 374)
+    role_card(d, (96, 374, 416, 430), "apply", "Helm \u00b7 Apply")
+    d.text((256, 470), "three ideas, one slider", fill=ARROW, font=font(20), anchor="mm")
+    return out
+
+
+def thumb_pairs():
+    """Template 6: prompt pairs -> Axis -> Apply."""
+    out = Image.new("RGB", (THUMB, THUMB), (24, 24, 27))
+    d = ImageDraw.Draw(out)
+    for i, (a, b) in enumerate((("street, fog", "street, clear"), ("lake, fog", "lake, clear"), ("square, fog", "square, clear"))):
+        y0 = 24 + i * 56
+        role_card(d, (36, y0, 244, y0 + 44), "edit", a, None, font(19, True))
+        role_card(d, (268, y0, 476, y0 + 44), "edit", b, None, font(19, True))
+        d.text((256, y0 + 22), "||", fill=(255, 255, 255), font=font(22, True), anchor="mm")
+    down_arrow(d, 256, 196, 236)
+    role_card(d, (76, 238, 436, 318), "axis", "Helm \u00b7 Axis", "built from your pairs")
+    down_arrow(d, 256, 324, 362)
+    role_card(d, (76, 364, 436, 424), "apply", "Helm \u00b7 Apply")
+    d.text((256, 462), "three pairs, one reusable idea", fill=ARROW, font=font(20), anchor="mm")
+    d.text((256, 490), "saved under Custom", fill=(120, 120, 126), font=font(17), anchor="mm")
+    return out
+
+
+def clear_of_badge(img, top=70):
+    """The template card draws a 'Node graph' badge over the top-left of the thumbnail: keep the drawing below it."""
+    scale = (THUMB - top) / THUMB
+    small = img.resize((round(THUMB * scale), THUMB - top), Image.LANCZOS)
+    out = Image.new("RGB", (THUMB, THUMB), (24, 24, 27))
+    out.paste(small, ((THUMB - small.width) // 2, top))
+    return out
+
+
 def save_jpg(img, name):
     img.save(os.path.join(WF, name + ".jpg"), "JPEG", quality=88, optimize=True, progressive=True)
 
 
 if __name__ == "__main__":
+    import sys
+
+    if "--chain-only" in sys.argv:
+        # templates 3 to 6 are drawings: redraw them without re-encoding the stored previews or the Before | After thumbnails
+        save_jpg(thumb_make_axis(), "Helm 3. Make your own axis")
+        save_jpg(clear_of_badge(thumb_chain()), "Helm 4. Chain ideas (Axis \u2192 Apply)")
+        save_jpg(clear_of_badge(thumb_mix()), "Helm 5. Shape and mix (Axis \u00d7 3 \u2192 Mix \u2192 Shape \u2192 Apply)")
+        save_jpg(clear_of_badge(thumb_pairs()), "Helm 6. Build a multipurpose axis from prompt pairs")
+        print("wrote 4 drawn template thumbnails")
+        sys.exit(0)
     for name, after in PREVIEWS.items():
         relabel(name, after)
     for name, (src, after) in THUMBS.items():
         save_jpg(thumb_before_after(src, after), name)
     save_jpg(thumb_make_axis(), "Helm 3. Make your own axis")
-    print(f"wrote {len(PREVIEWS)} labelled previews and {len(THUMBS) + 1} template thumbnails")
+    save_jpg(clear_of_badge(thumb_chain()), "Helm 4. Chain ideas (Axis \u2192 Apply)")
+    save_jpg(clear_of_badge(thumb_mix()), "Helm 5. Shape and mix (Axis \u00d7 3 \u2192 Mix \u2192 Shape \u2192 Apply)")
+    save_jpg(clear_of_badge(thumb_pairs()), "Helm 6. Build a multipurpose axis from prompt pairs")
+    print(f"wrote {len(PREVIEWS)} labelled previews and {len(THUMBS) + 4} template thumbnails")

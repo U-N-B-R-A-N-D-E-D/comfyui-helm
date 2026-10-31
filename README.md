@@ -129,13 +129,16 @@ Prebuilt axes ship inside `example_axes/` and resolve automatically on a fresh c
 
 Open ComfyUI's **Templates** browser and search **`helm`**, or drag a workflow from `example_workflows/` onto the canvas.
 
-**Starter templates (the template browser lists exactly these three; ComfyUI shows the file name as the title and `<file name>.jpg` as the thumbnail):**
+**Starter templates (the template browser lists exactly these six; ComfyUI shows the file name as the title and `<file name>.jpg` as the thumbnail):**
 
 | Template | Model | What it does |
 | :--- | :--- | :--- |
 | **Helm 1. Start here (Z-Image)** | **Z-Image** | Dial + Before \| After. Core ComfyUI nodes only; consumer GPU. |
 | **Helm 2. Video (MiniMax H3)** | **MiniMax H3** (video) | The same Dial on video; renders Before and After. Needs the H3 UNet (~21 GB int8, not for 24 GB) + Qwen3-VL 32B text encoder. |
 | **Helm 3. Make your own axis** | **Z-Image** | **Make Axis** -> **Dial**. Image models with plain text prompts. |
+| **Helm 4. Chain ideas (Axis → Apply)** | **Z-Image** | The two-node minimal path of the 0.5 chain, with Before \| After. |
+| **Helm 5. Shape and mix (Axis × 3 → Mix → Shape → Apply)** | **Z-Image** | Three ideas mixed, then one signed amount. Shape and Mix are experimental. |
+| **Helm 6. Build a multipurpose axis from prompt pairs** | **Z-Image** | An Axis built from three with/without pairs on different subjects, then applied. |
 
 **Older templates (`example_workflows/legacy/`, kept so old links still load; notes rewritten in plain language):**
 

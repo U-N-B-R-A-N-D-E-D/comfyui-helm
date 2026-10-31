@@ -14,6 +14,14 @@ WIDGET_ORDER = {
     # `seed` is followed by its control_after_generate value, like every ComfyUI seed widget
     "HelmMakeAxis": [("with_idea", str), ("without_idea", str), ("name", str), ("steps", int),
                      ("seed", int), ("seed_control", str), ("cfg", float), ("block", int)],
+    "HelmAxis": [("source", str), ("idea", str), ("pairs", str), ("name", str), ("debias", bool),
+                 ("debias_strength", float), ("steps", int), ("seed", int), ("seed_control", str), ("cfg", float),
+                 ("block", int)],
+    "HelmShape": [("amount", float), ("stage", str), ("split", float), ("curve", str), ("end_amount", float),
+                  ("easing", str), ("keyframes", str)],
+    "HelmMix": [("orthogonalize", bool), ("weight_1", float), ("weight_2", float), ("weight_3", float),
+                ("weight_4", float), ("axis_weights", str)],
+    "HelmApplyNode": [("cond_only", bool), ("mode", str)],
     "HelmApply": [
         ("axis", str),
         ("block", int),

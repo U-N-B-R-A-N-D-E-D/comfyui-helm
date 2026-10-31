@@ -22,6 +22,20 @@ The core of the Helm 0.5 node family. Nothing here has been measured on a GPU ye
   unchanged, so old workflows load and run).
 - `Helm · Dial` is unchanged and remains the one-node shortcut.
 
+UX for the chain:
+
+- **"What comes next" suggestions** (`web/helm_flow.js`): drag a link out of a Helm slot and release it on empty canvas.
+  The node search is already filtered by the slot type (Helm nodes first); in the link-release menu the pack lists the
+  Helm nodes that make sense after the node you dragged from (Axis: Shape, Mix, Apply, Axis; Shape: Apply, Mix; Mix:
+  Apply; Apply: sampler or guider). A HELM input suggests Axis. Only links from or to a Helm node are touched.
+- **Role colours**: Axis purple, Shape and Dial orange, Mix blue, Apply grey, Lab slate; the templates use the same.
+- **Plain-words captions** on Axis, Shape ("-40% (less), late steps") and Mix (its report after a run).
+- **Progressive disclosure**: Axis in library mode shows only source and idea, prompts mode shows the prompt settings;
+  Shape shows split, ramp and keyframe controls only when they apply.
+- **Node help** (`web/docs/`) for Axis, Shape, Mix and Apply.
+- **Templates 4 to 6** (Axis -> Apply; Axis x 3 -> Mix -> Shape -> Apply; build an axis from prompt pairs).
+- Mix also sends its report to the UI (a small `text` message), so the node can show it.
+
 ## 0.4.0 (unreleased)
 
 The nodes and templates now deliver the product promise: one slider moves one idea, no prompt rewrite.

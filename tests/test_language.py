@@ -51,7 +51,8 @@ def test_display_names_and_tooltips_are_english(helm):
 
 @pytest.mark.parametrize("rel", ["nodes.py", "__init__.py", "web/helm_axes.js", "README.md", "CHANGELOG.md",
                                  "docs/AXES.md", "docs/UX-NOTES.md", "docs/SPEC-0.5.md", "helm_core.py", "web/docs/HelmDial.md",
-                                 "web/docs/HelmMakeAxis.md", "docs/EXPERIMENTS.md", "study/DATASET.md",
+                                 "web/docs/HelmMakeAxis.md", "web/docs/HelmAxis.md", "web/docs/HelmShape.md", "web/docs/HelmMix.md",
+                                 "web/docs/HelmApplyNode.md", "web/helm_flow.js", "docs/EXPERIMENTS.md", "study/DATASET.md",
                                  "study/CONTENT-CALENDAR.md", "axes_catalog.json", "calibration.json"])
 def test_messages_docs_and_catalog_are_english(rel):
     text = open(os.path.join(PACK, rel), encoding="utf-8").read()

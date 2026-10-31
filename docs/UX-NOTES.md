@@ -90,7 +90,7 @@ official ComfyUI templates and a handful of mature node packs do it, and what we
 9. **Say what the Dial is doing, in words.** A live caption under the slider ("Light angle (raking) at 60%",
    "(Dial off)" at 0) and the same sentence in the console. It is drawn by the node, so it is readable even
    when the canvas is zoomed out.
-10. **Node help** for the two main nodes in `web/docs/HelmDial.md` and `HelmMakeAxis.md` (the "i" panel).
+10. **Node help** for every main node in `web/docs/` (`HelmDial.md`, `HelmMakeAxis.md`, `HelmAxis.md`, `HelmShape.md`, `HelmMix.md`, `HelmApplyNode.md`; the "i" panel).
 11. **Menu order by visible impact, with a Subtle section.** *Essentials* are sorted by how visible the change is
     (top-dose saturation shift + peak luminance shift + |edge ratio - 1|, from `study/data/axes.csv`; the numbers are
     in `axes_catalog.json` as `visible_impact`). Three axes that hold in the benchmark but show no visible effect
@@ -98,6 +98,48 @@ official ComfyUI templates and a handful of mature node packs do it, and what we
     starts on *Light angle (raking)*, a plain, easy to read idea, not on the highest-impact one.
 12. **Technical numbers live in the docs.** The preview images say "Before" and "After (Amount 1.0)". `safe_max` and
     strengths are in `docs/AXES.md`.
+
+## Helm 0.5: the chain (what we added, and how it was checked)
+
+Checked in a real ComfyUI 0.43.2 with frontend 1.57.4 (CPU, no weights, throwaway base directory).
+
+13. **"What comes next" when a link is released on empty canvas.** What the frontend does (read from the installed
+    bundle, then confirmed in the browser):
+    - *Plain release.* New installs default to the **node search** (`Comfy.LinkRelease.Action` = search box, from
+      install version 1.24.1; Shift = context menu). The search is opened with the slot type as a filter: every node that takes
+      that type is listed first, then the nodes that take any type. For `HELM` that is exactly the four Helm nodes, so the
+      next Helm node is already on screen. The order inside the list is fixed by the frontend (shortest node name first
+      for an empty query, so *Mix, Axis, Shape, Apply*) and a pack cannot change it.
+    - *Menu.* The link-release menu (Shift + release, or the plain release if the user chose it) lists
+      `LiteGraph.slot_types_default_out[type]` for a dragged output and `slot_types_default_in[type]` for a dragged input.
+      The stock tables are built from node registration order and cut to 5, so a plain `HELM` table has no idea what
+      comes after *this* node and shows class names (`HelmApplyNode`).
+    - *What `web/helm_flow.js` does.* It wraps `LGraphCanvas.showConnectionMenu`. Only when the link comes from (or goes to) a
+      Helm node, it sets the table for that slot type to a short, ordered list for the moment the menu is open (LiteGraph
+      checks the table again when an entry is clicked, so it is restored when the menu closes), and shows each node by its
+      title. Every other node, and every other pack, sees the stock tables. If the wrap cannot be installed, nothing
+      changes.
+    - *The suggestions.* HELM out of Axis: Shape, Mix, Apply, Axis. Out of Shape: Apply, Mix. Out of Mix: Apply. MODEL out
+      of Apply (and the Dial): KSampler, Basic Guider, CFG Guider, KSampler (Advanced). Dragging from a HELM input:
+      Axis. The node that is created is connected to the first free slot of that type (Mix gets `helm_1`; Axis is
+      chained through its optional `helm` input).
+14. **Role colours.** Purple = Axis (WHAT), orange = Shape (HOW MUCH) and the one-node Dial, blue = Mix (COMBINE), grey =
+    Apply (WHERE), slate = Lab. The same hex values are in `web/helm_axes.js` and in the templates, and
+    `tests/test_templates.py` compares them. Groups: green = you edit, purple = the Axis group, orange = Helm controls,
+    grey = leave alone, blue = the result.
+15. **Progressive disclosure with `widget.hidden`.** Axis in library mode shows `source` and `idea` only; in prompts
+    mode it swaps the idea menu for pairs, name, debias, steps, seed, cfg and block. Shape shows `split` for early/late,
+    and `end_amount`/`easing`/`keyframes` for the ramp and keyframes curves. Hidden widgets keep their values and their place in
+    `widgets_values`, so saved workflows are unchanged. A saved workflow keeps its own size; only a change of mode resizes.
+16. **Captions in words** drawn by the node (readable when zoomed out): Axis (idea, or "New idea from 3 prompt pairs, saved as
+    my_axis"), Shape ("-40% (less), late steps", "+50% -> 0% (ramp), all steps"), Mix (before a run: "Mixing 3 inputs, made
+    independent"; after a run: the first line of its report, which Mix also sends to the UI as a `text` message).
+17. **Templates 4 to 6 teach the chain by level**, with the same rules as 1 to 3: 4 is Axis -> Apply (two nodes), 5 is
+    Axis x 3 -> Mix -> Shape -> Apply (with a note that Shape and Mix are experimental), 6 builds an Axis from three
+    prompt pairs. Thumbnails are clean diagrams in the role colours (no frames are borrowed, because the default amount
+    of the chain was never rendered as a Before | After pair). The drawing starts below the "Node graph" badge the card
+    paints on the top-left. File names contain an arrow and a times sign; the template browser, the thumbnail lookup and
+    the sort order all work with them.
 
 ## What we did not copy, and why
 

@@ -1519,7 +1519,7 @@ class HelmMix:
     RETURN_NAMES = ("helm", "report")
     OUTPUT_TOOLTIPS = ("All the ideas in one HELM, weighted and (optionally) made independent.",
                        "Plain-text notes: mismatched models or blocks, ideas that could not be separated.")
-    FUNCTION = "run"
+    FUNCTION = "run_ui"
     CATEGORY = "Helm"
     EXPERIMENTAL = True
     DESCRIPTION = ("COMBINE ideas: several HELM inputs with weights, optionally made independent of each other so moving "
@@ -1548,6 +1548,11 @@ class HelmMix:
             print(f"[helm] Mix: {w}")
         print(f"[helm] Mix: {len(new_axes)} idea(s), orthogonalize={bool(orthogonalize)}")
         return (out, report)
+
+    def run_ui(self, *args, **kwargs):
+        """ComfyUI entry point: the same result, plus the report as a UI message so the node can show it in words."""
+        out, report = self.run(*args, **kwargs)
+        return {"ui": {"text": [report]}, "result": (out, report)}
 
 
 def _make_shaper(axis, is_h3):

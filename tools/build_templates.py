@@ -1,4 +1,4 @@
-"""Regenerates the three starter templates in example_workflows/ (flat graphs, no subgraphs).
+"""Regenerates the six starter templates in example_workflows/ (flat graphs, no subgraphs).
 
 ComfyUI's template browser lists custom-node templates by FILE NAME (there is no index for them) and looks for
 a thumbnail next to the workflow with the same name and a .jpg extension, so the file names below are the
@@ -9,6 +9,9 @@ titles people read. See docs/UX-NOTES.md.
 The templates are plain ComfyUI "UI format" JSON. They are generated so that the three graphs stay
 consistent (same node sizes, colors, group titles) and so that every link is checked once, here and again
 by tests/test_templates.py. Only core ComfyUI nodes and Helm nodes are used.
+
+Templates 1 to 3 use the one-node Dial (plus Make Axis in 3). Templates 4 to 6 teach the 0.5 chain by level:
+Axis -> Apply, then Axis x 3 -> Mix -> Shape -> Apply, then an Axis built from prompt pairs.
 """
 import json
 import os
@@ -58,20 +61,41 @@ S = {
                    ("codec", "COMFY_DYNAMICCOMBO_V3", 1)], []),
     "HelmDial": ([("model", "MODEL", 0), ("axis", "COMBO", 1), ("amount", "FLOAT", 1), ("axis_from", "STRING", 0, 1)],
                  [("model", "MODEL")]),
+    "HelmAxis": ([("helm", "HELM", 0, 1), ("model", "MODEL", 0, 1), ("clip", "CLIP", 0, 1), ("latent", "LATENT", 0, 1),
+                   ("source", "COMBO", 1), ("idea", "COMBO", 1), ("pairs", "STRING", 1, 1), ("name", "STRING", 1, 1),
+                   ("debias", "BOOLEAN", 1, 1), ("debias_strength", "FLOAT", 1, 1), ("steps", "INT", 1, 1),
+                   ("seed", "INT", 1, 1), ("cfg", "FLOAT", 1, 1), ("block", "INT", 1, 1)],
+                  [("helm", "HELM")]),
+    "HelmShape": ([("helm", "HELM", 0), ("amount", "FLOAT", 1), ("stage", "COMBO", 1, 1), ("split", "FLOAT", 1, 1),
+                   ("curve", "COMBO", 1, 1), ("end_amount", "FLOAT", 1, 1), ("easing", "COMBO", 1, 1),
+                   ("keyframes", "STRING", 1, 1)],
+                  [("helm", "HELM")]),
+    "HelmMix": ([("helm_1", "HELM", 0), ("helm_2", "HELM", 0, 1), ("helm_3", "HELM", 0, 1), ("helm_4", "HELM", 0, 1),
+                 ("orthogonalize", "BOOLEAN", 1), ("weight_1", "FLOAT", 1, 1), ("weight_2", "FLOAT", 1, 1),
+                 ("weight_3", "FLOAT", 1, 1), ("weight_4", "FLOAT", 1, 1), ("axis_weights", "STRING", 1, 1)],
+                [("helm", "HELM"), ("report", "STRING")]),
+    "HelmApplyNode": ([("model", "MODEL", 0), ("helm", "HELM", 0), ("cond_only", "BOOLEAN", 1, 1), ("mode", "COMBO", 1, 1)],
+                      [("model", "MODEL")]),
     "HelmMakeAxis": ([("model", "MODEL", 0), ("clip", "CLIP", 0), ("latent", "LATENT", 0), ("with_idea", "STRING", 1),
                       ("without_idea", "STRING", 1), ("name", "STRING", 1), ("steps", "INT", 1),
                       ("seed", "INT", 1, 1), ("cfg", "FLOAT", 1, 1), ("block", "INT", 1, 1)],
                      [("model", "MODEL"), ("axis", "STRING")]),
 }
 
-# colors (title, body)
+HELM_NODES = ("HelmDial", "HelmMakeAxis", "HelmAxis", "HelmShape", "HelmMix", "HelmApplyNode")
+
+# colors (title, body). The Helm role colors are the same ones web/helm_axes.js gives a node when you add it from search.
 GREEN = ("#232", "#353")      # things you edit
-ORANGE = ("#6b3300", "#a85200")   # the Helm control
+PURPLE = ("#3a2352", "#5b3a80")   # Helm Axis: WHAT
+ORANGE = ("#6b3300", "#a85200")   # Helm Shape and the one-node Dial: HOW MUCH
+BLUE = ("#1c3a5e", "#2f5f94")     # Helm Mix: COMBINE
+GREY = ("#333", "#555")           # Helm Apply: WHERE
 NOTE = ("#222", "#000")       # same as the official ComfyUI templates' MarkdownNote
 GROUP_BLUE = "#3f789e"
 GROUP_ORANGE = "#b06634"
 GROUP_GREEN = "#3f8e5e"
 GROUP_GREY = "#8A8A8A"
+GROUP_PURPLE = "#7e57a3"
 
 Z_MODELS = {
     "UNETLoader": ("z_image_turbo_bf16.safetensors", "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors", "diffusion_models"),
@@ -105,7 +129,7 @@ class Graph:
             if len(spec) > 3 and spec[3]:
                 entry["shape"] = 7
             node["inputs"].append(entry)
-        if typ in ("HelmDial", "HelmMakeAxis"):
+        if typ in HELM_NODES:
             node["properties"]["cnr_id"] = "comfyui-helm"
         if models:
             node["properties"]["models"] = [{"name": n, "url": u, "directory": d} for n, u, d in models]
@@ -165,11 +189,11 @@ def z_models(g, x, y):
     return u, c, v, s
 
 
-def before_after_z(g, x, y, model_before, model_after, pos, neg, latent, vae, seed):
+def before_after_z(g, x, y, model_before, model_after, pos, neg, latent, vae, seed, pw=660):
     """Two KSamplers with the same seed. Before = model straight from the loader chain (Dial off).
 
     (x, y) is the group origin. The picture comes first; the plumbing is collapsed into pills under it."""
-    pv = g.add("PreviewImage", (x + 20, y + 80), (660, 420), None, "Left: Before    Right: After")
+    pv = g.add("PreviewImage", (x + 20, y + 80), (pw, 420), None, "Left: Before    Right: After")
     row = y + 540
     kb = g.add("KSampler", (x + 20, row), (300, 340), [0, "fixed", 8, 1, "res_multistep", "simple", 1],
                "Before (Dial off)", collapsed=True)
@@ -345,10 +369,142 @@ def template_3():
     return g
 
 
+T4 = "Helm 4. Chain ideas (Axis \u2192 Apply).json"
+T5 = "Helm 5. Shape and mix (Axis \u00d7 3 \u2192 Mix \u2192 Shape \u2192 Apply).json"
+T6 = "Helm 6. Build a multipurpose axis from prompt pairs.json"
+
+AXIS_DEFAULT_PAIRS = ("a quiet street at dawn, thick fog || a quiet street at dawn, clear air\n"
+                      "a mountain lake, thick fog || a mountain lake, clear air\n"
+                      "a market square, thick fog || a market square, clear air")
+
+
+def axis_node(g, pos, idea, title="Helm \u00b7 Axis", size=(400, 180)):
+    """Library mode: the idea menu is the only thing to set (the other widgets are hidden by the frontend)."""
+    return g.add("HelmAxis", pos, size, ["library", idea, AXIS_DEFAULT_PAIRS, "my_axis", True, 1.0, 4, 0, "fixed", 1.0, -1],
+                 title, PURPLE)
+
+
+def apply_node(g, pos, size=(400, 102)):
+    return g.add("HelmApplyNode", pos, size, [False, "push"], "Helm \u00b7 Apply", GREY)
+
+
+def shared_left(g, steps, w=500):
+    """The green 'write your prompt' group, as in templates 1 and 4 to 5. Returns (prompt, size, seed)."""
+    steps_note(g, "Note: Start here", (0, 0), (w, 170), *steps)
+    g.group("1 · Write your prompt", 0, 210, w, 520, GROUP_GREEN)
+    pr = g.add("CLIPTextEncode", (20, 290), (w - 40, 200),
+               ["an industrial hall with tall windows and a single person standing in the middle, documentary photography"],
+               "Your prompt (edit me)", GREEN)
+    half = (w - 60) // 2
+    size = g.add("EmptySD3LatentImage", (20, 520), (half, 150), [1024, 1024, 1], "Image size")
+    seed = g.add("PrimitiveInt", (40 + half, 520), (half, 110), [11, "fixed"], "Seed (shared by both)")
+    return pr, size, seed
+
+
+def template_4():
+    """Axis -> Apply: the two-node minimal path."""
+    g = Graph()
+    pr, size, seed = shared_left(g, ("Write your prompt in the green box",
+                                     "Pick an idea on the purple **Axis**; its output goes into the grey **Apply**",
+                                     "**Run**, then compare Before | After"))
+    g.group("2 · Pick an idea", 560, 0, 460, 300, GROUP_PURPLE)
+    ax = axis_node(g, (580, 80), "Essentials \u00b7 Light angle (raking) (Z-Image)")
+    g.group("3 · Apply it", 560, 340, 460, 310, GROUP_ORANGE)
+    ap = apply_node(g, (580, 420))
+    g.add("MarkdownNote", (580, 550), (420, 80), colors=NOTE, title="Note: Axis \u2192 Apply", text=(
+        "## The minimum chain\n\n"
+        "- **Axis** says which idea, **Apply** puts it in the model\n"
+        "- No Shape needed: amount 0.5 on every step"))
+    g.group("Models (leave as they are)", 560, 690, 640, 360, GROUP_GREY)
+    u, c, v, s = z_models(g, 580, 770)
+    zero = g.add("ConditioningZeroOut", (580, 970), (300, 70), None, "Empty negative", collapsed=True)
+    models_note(g, (900, 770), "- [Z-Image Turbo files on Hugging Face](https://huggingface.co/Comfy-Org/z_image_turbo)")
+    g.link(c, "CLIP", pr, "clip")
+    g.link(pr, "CONDITIONING", zero, "conditioning")
+    g.link(s, "MODEL", ap, "model")
+    g.link(ax, "helm", ap, "helm")
+    g.group("4 · Result: Before | After", 1080, 0, 700, 760, GROUP_BLUE)
+    before_after_z(g, 1080, 0, s, ap, pr, zero, size, v, seed)
+    return g
+
+
+def template_5():
+    """Axis x 3 -> Mix -> Shape -> Apply."""
+    g = Graph()
+    pr, size, seed = shared_left(g, ("Write your prompt in the green box",
+                                     "Pick three ideas on the purple **Axis** nodes",
+                                     "Move **amount** on the orange **Shape**, **Run**, compare"), w=440)
+    g.group("2 · Pick three ideas", 480, 0, 380, 700, GROUP_PURPLE)
+    a1 = axis_node(g, (500, 80), "Essentials \u00b7 Light angle (raking) (Z-Image)", "Helm \u00b7 Axis: light", (340, 180))
+    a2 = axis_node(g, (500, 280), "Essentials \u00b7 Less clutter (Z-Image)", "Helm \u00b7 Axis: clutter", (340, 180))
+    a3 = axis_node(g, (500, 480), "Essentials \u00b7 Aisle width (Z-Image)", "Helm \u00b7 Axis: aisle", (340, 180))
+    g.group("3 · Mix, shape, apply", 900, 0, 380, 780, GROUP_ORANGE)
+    mx = g.add("HelmMix", (920, 80), (340, 280), [True, 1, 1, 1, 1, ""], "Helm \u00b7 Mix (experimental)", BLUE)
+    sh = g.add("HelmShape", (920, 380), (340, 150), [0.5, "all steps", 0.5, "constant", 0.0, "linear",
+                                                    "0:0.2, 0.5:0.8, 1:0.4"], "Helm \u00b7 Shape (experimental)", ORANGE)
+    ap = apply_node(g, (920, 550), (340, 102))
+    g.add("MarkdownNote", (920, 670), (340, 100), colors=NOTE, title="Note: Experimental", text=(
+        "## Experimental\n\n"
+        "**Shape** and **Mix** are new and not yet measured on a GPU. **Axis \u2192 Apply** (template 4) is the safe path."))
+    g.group("Models (leave as they are)", 0, 770, 440, 330, GROUP_GREY)
+    u, c, v, s = z_models(g, 20, 850)
+    zero = g.add("ConditioningZeroOut", (20, 1050), (300, 70), None, "Empty negative", collapsed=True)
+    models_note(g, (320, 850), "- [Z-Image Turbo files on Hugging Face](https://huggingface.co/Comfy-Org/z_image_turbo)", (110, 220))
+    g.link(c, "CLIP", pr, "clip")
+    g.link(pr, "CONDITIONING", zero, "conditioning")
+    g.link(a1, "helm", mx, "helm_1"); g.link(a2, "helm", mx, "helm_2"); g.link(a3, "helm", mx, "helm_3")
+    g.link(mx, "helm", sh, "helm")
+    g.link(sh, "helm", ap, "helm")
+    g.link(s, "MODEL", ap, "model")
+    g.group("4 · Result: Before | After", 1320, 0, 640, 760, GROUP_BLUE)
+    before_after_z(g, 1320, 0, s, ap, pr, zero, size, v, seed, pw=600)
+    return g
+
+
+def template_6():
+    """An Axis built from prompt pairs, then Apply."""
+    g = Graph()
+    steps_note(g, "Note: Start here", (0, 0), (560, 190),
+               "Write 3 pairs in the purple Axis: with the idea || without it, on different subjects",
+               "**Run**: your idea is built, saved and applied",
+               "Compare Before | After, then change the pairs")
+    g.group("1 · Describe the idea", 0, 230, 560, 780, GROUP_PURPLE)
+    tiny = g.add("EmptySD3LatentImage", (20, 310), (250, 130), [512, 512, 1], "Test size (small is fine)")
+    ax = g.add("HelmAxis", (20, 470), (520, 520),
+               ["prompts", "Essentials \u00b7 Light angle (raking) (Z-Image)", AXIS_DEFAULT_PAIRS, "my_fog", True, 1.0, 4, 0,
+                "fixed", 1.0, -1], "Helm \u00b7 Axis: build from pairs", PURPLE)
+    g.group("2 · Your prompt", 620, 0, 560, 400, GROUP_GREEN)
+    pr = g.add("CLIPTextEncode", (640, 80), (520, 160), ["a quiet street at dawn, documentary photography"],
+               "Your prompt (edit me)", GREEN)
+    size = g.add("EmptySD3LatentImage", (640, 270), (250, 110), [1024, 1024, 1], "Final image size")
+    seed = g.add("PrimitiveInt", (910, 270), (250, 110), [11, "fixed"], "Seed (shared by both)")
+    g.group("3 · Apply it", 620, 440, 560, 430, GROUP_ORANGE)
+    ap = apply_node(g, (640, 520), (520, 102))
+    g.add("MarkdownNote", (640, 650), (520, 200), colors=NOTE, title="Note: About your axis", text=(
+        "## About your axis\n\n"
+        "- Saved as **my_fog** in your ComfyUI user/steer folder. Next time it is also in the Axis menu under Custom.\n"
+        "- Its safe range is an **estimate**. Trust the Before | After picture.\n"
+        "- **debias** (experimental) removes the colour tint a prompt change tends to bring.\n"
+        "- Nothing changes? Make the two sides of each pair differ more."))
+    g.group("4 · Result: Before | After", 1240, 0, 700, 760, GROUP_BLUE)
+    g.group("Models (leave as they are)", 1240, 800, 640, 360, GROUP_GREY)
+    u, c, v, s = z_models(g, 1260, 880)
+    zero = g.add("ConditioningZeroOut", (1260, 1080), (300, 70), None, "Empty negative", collapsed=True)
+    models_note(g, (1580, 880), "- [Z-Image Turbo files on Hugging Face](https://huggingface.co/Comfy-Org/z_image_turbo)")
+    g.link(c, "CLIP", pr, "clip"); g.link(pr, "CONDITIONING", zero, "conditioning")
+    g.link(s, "MODEL", ax, "model"); g.link(c, "CLIP", ax, "clip"); g.link(tiny, "LATENT", ax, "latent")
+    g.link(s, "MODEL", ap, "model"); g.link(ax, "helm", ap, "helm")
+    before_after_z(g, 1240, 0, s, ap, pr, zero, size, v, seed)
+    return g
+
+
 if __name__ == "__main__":
     # ComfyUI always fits a template to the window when it opens, and below about 60% zoom it draws nodes as
     # empty boxes. So each graph is kept compact (about 2000 x 1000 units) and the plumbing is collapsed.
     template_1().dump(os.path.join(OUT, T1))
     template_2().dump(os.path.join(OUT, T2))
     template_3().dump(os.path.join(OUT, T3))
-    print("wrote 3 templates to", OUT)
+    template_4().dump(os.path.join(OUT, T4))
+    template_5().dump(os.path.join(OUT, T5))
+    template_6().dump(os.path.join(OUT, T6))
+    print("wrote 6 templates to", OUT)

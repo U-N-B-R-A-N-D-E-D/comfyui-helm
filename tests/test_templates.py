@@ -1,4 +1,4 @@
-"""The three starter templates: flat, readable, Helm controls on the canvas, only core + Helm nodes.
+"""The six starter templates: flat, readable, Helm controls on the canvas, only core + Helm nodes.
 
 Set COMFYUI_DIR to a ComfyUI checkout to also check every node type against that core's source.
 """
@@ -16,12 +16,30 @@ WF = os.path.join(PACK, "example_workflows")
 T1 = "Helm 1. Start here (Z-Image).json"
 T2 = "Helm 2. Video (MiniMax H3).json"
 T3 = "Helm 3. Make your own axis.json"
+T4 = "Helm 4. Chain ideas (Axis \u2192 Apply).json"
+T5 = "Helm 5. Shape and mix (Axis \u00d7 3 \u2192 Mix \u2192 Shape \u2192 Apply).json"
+T6 = "Helm 6. Build a multipurpose axis from prompt pairs.json"
+DIAL_TEMPLATES = (T1, T2, T3)      # the one-node Dial shortcut
+CHAIN_TEMPLATES = (T4, T5, T6)     # the 0.5 chain: Axis, Shape, Mix, Apply
 STARTERS = {
     T1: ("Z-Image", 3840),
     T2: ("MiniMax H3", 5376),
     T3: ("Z-Image", 3840),
+    T4: ("Z-Image", 3840),
+    T5: ("Z-Image", 3840),
+    T6: ("Z-Image", 3840),
 }
-HELM_TYPES = {"HelmDial", "HelmMakeAxis"}
+HELM_TYPES = {"HelmDial", "HelmMakeAxis", "HelmAxis", "HelmShape", "HelmMix", "HelmApplyNode"}
+# Role colors (title, body): the same table web/helm_axes.js gives a node when you add it from search.
+ROLE_COLORS = {
+    "HelmAxis": ("#3a2352", "#5b3a80"),        # purple: WHAT
+    "HelmShape": ("#6b3300", "#a85200"),       # orange: HOW MUCH
+    "HelmDial": ("#6b3300", "#a85200"),        # orange: the one-node shortcut
+    "HelmMakeAxis": ("#6b3300", "#a85200"),
+    "HelmMix": ("#1c3a5e", "#2f5f94"),         # blue: COMBINE
+    "HelmApplyNode": ("#333", "#555"),         # grey: WHERE
+}
+GROUP_COLORS = {"#3f8e5e", "#b06634", "#8A8A8A", "#3f789e", "#7e57a3"}
 # Types the starters use from ComfyUI core (checked against core 0.43.2 source). `MarkdownNote` is a
 # frontend-native node, so it has no Python definition.
 CORE_TYPES = {
@@ -43,7 +61,7 @@ def _all_json():
         sorted(glob.glob(os.path.join(PACK, "api", "*.json")))
 
 
-def test_exactly_three_starter_templates_in_the_browser_folder():
+def test_exactly_six_starter_templates_in_the_browser_folder():
     flat = sorted(os.path.basename(p) for p in glob.glob(os.path.join(WF, "*.json")))
     assert flat == sorted(STARTERS), "ComfyUI's template browser lists only example_workflows/*.json"
 
@@ -62,8 +80,9 @@ def test_each_starter_has_a_square_jpg_thumbnail_with_the_same_name():
 @pytest.mark.parametrize("name", sorted(STARTERS))
 def test_file_name_is_a_readable_title(name):
     title = name[:-5]
-    assert re.match(r"^Helm [123]\. [A-Z]", title), title
-    assert "_" not in title and title.isascii()
+    assert re.match(r"^Helm [1-6]\. [A-Z]", title), title
+    assert "_" not in title
+    assert set(c for c in title if not c.isascii()) <= {"\u2192", "\u00d7"}, "only the arrow and the times sign"
 
 
 def test_older_templates_live_in_legacy():
@@ -76,14 +95,18 @@ def test_flat_graph_with_helm_on_the_canvas(name):
     data = _load(name)
     assert not data.get("definitions", {}).get("subgraphs"), "no subgraph may hide Helm controls"
     top = {n["type"] for n in data["nodes"]}
-    assert "HelmDial" in top, "the Dial must be a top-level node"
+    if name in DIAL_TEMPLATES:
+        assert "HelmDial" in top, "the Dial must be a top-level node"
+    else:
+        assert {"HelmAxis", "HelmApplyNode"} <= top, "the chain templates show Axis and Apply on the canvas"
+        assert "HelmDial" not in top
     assert not any(re.fullmatch(r"[0-9a-f-]{36}", t) for t in top), "subgraph instance found"
     if name == T3:
         assert "HelmMakeAxis" in top
     assert "HelmApply" not in top, "starters use the Dial, not the manual Apply node"
 
 
-@pytest.mark.parametrize("name", sorted(STARTERS))
+@pytest.mark.parametrize("name", DIAL_TEMPLATES)
 def test_dial_is_labelled_and_colored(name):
     data = _load(name)
     dial = next(n for n in data["nodes"] if n["type"] == "HelmDial")
@@ -133,12 +156,17 @@ def test_node_colors_match_group_colors(name):
     """Green = you edit it, orange = the Helm control, grey = leave alone, blue = the result."""
     data = _load(name)
     colors = {g["title"].split(" · ")[-1].split(" (")[0]: g["color"] for g in data["groups"]}
-    assert set(g["color"] for g in data["groups"]) == {"#3f8e5e", "#b06634", "#8A8A8A", "#3f789e"}
+    assert {"#3f8e5e", "#8A8A8A", "#3f789e"} <= set(g["color"] for g in data["groups"]) <= GROUP_COLORS
     for n in data["nodes"]:
         if n["type"] in HELM_TYPES:
-            assert (n["color"], n["bgcolor"]) == ("#6b3300", "#a85200")
+            assert (n["color"], n["bgcolor"]) == ROLE_COLORS[n["type"]], (name, n.get("title"))
             grp = next(g for g in data["groups"] if _inside(n, g))
-            assert grp["color"] in ("#b06634", "#3f8e5e"), grp["title"]  # Make Axis sits in the green "describe" group
+            if n["type"] == "HelmAxis":
+                assert grp["color"] == "#7e57a3", grp["title"]  # Axis lives in the purple group
+            elif n["type"] == "HelmMakeAxis":
+                assert grp["color"] in ("#b06634", "#3f8e5e"), grp["title"]  # Make Axis sits in the green "describe" group
+            else:
+                assert grp["color"] in ("#b06634", "#7e57a3"), grp["title"]
         if n.get("title") == "Your prompt (edit me)":
             assert (n["color"], n["bgcolor"]) == ("#232", "#353")
             assert next(g for g in data["groups"] if _inside(n, g))["color"] == "#3f8e5e"
@@ -172,8 +200,8 @@ def test_no_node_overlaps_another_or_leaves_its_group(name):
         assert inside, g["title"]
 
 
-def test_node_help_exists_for_the_two_main_nodes():
-    for name in ("HelmDial", "HelmMakeAxis"):
+def test_node_help_exists_for_every_main_node():
+    for name in ("HelmDial", "HelmMakeAxis", "HelmAxis", "HelmShape", "HelmMix", "HelmApplyNode"):
         text = open(os.path.join(PACK, "web", "docs", name + ".md"), encoding="utf-8").read()
         assert text.startswith("# Helm · ") and len(text) < 2500
 
@@ -210,8 +238,8 @@ def test_before_after_uses_only_core_stitch(name):
     assert all(i["link"] is not None for i in stitch["inputs"] if i["name"] in ("image1", "image2"))
 
 
-@pytest.mark.parametrize("name", [T1, T3])
-def test_before_and_after_share_one_seed_and_differ_only_by_the_dial(name):
+@pytest.mark.parametrize("name", [T1, T3, T4, T5, T6])
+def test_before_and_after_share_one_seed_and_differ_only_by_the_helm_control(name):
     data = _load(name)
     links = {l[0]: l for l in data["links"]}
     samplers = [n for n in data["nodes"] if n["type"] == "KSampler"]
@@ -219,7 +247,8 @@ def test_before_and_after_share_one_seed_and_differ_only_by_the_dial(name):
     seeds = {links[next(i["link"] for i in s["inputs"] if i["name"] == "seed")][1] for s in samplers}
     assert len(seeds) == 1, "Before and After must read the same seed node"
     src = {s["title"]: links[next(i["link"] for i in s["inputs"] if i["name"] == "model")][1] for s in samplers}
-    dial = next(n["id"] for n in data["nodes"] if n["type"] == "HelmDial")
+    last = "HelmDial" if name in DIAL_TEMPLATES else "HelmApplyNode"
+    dial = next(n["id"] for n in data["nodes"] if n["type"] == last)
     assert src["After (your Amount)"] == dial
     assert src["Before (Dial off)"] != dial
 
@@ -289,9 +318,86 @@ def test_core_types_exist_in_a_real_comfyui_checkout_if_available():
     assert not missing, f"not found in this ComfyUI: {sorted(missing)}"
 
 
+def _chain(name):
+    """node type -> list of (node, {input name: id of the node feeding it}) for a chain template."""
+    data = _load(name)
+    links = {l[0]: l for l in data["links"]}
+    nodes = {n["id"]: n for n in data["nodes"]}
+    out = {}
+    for n in data["nodes"]:
+        feeders = {i["name"]: nodes[links[i["link"]][1]] for i in n["inputs"] if i["link"] is not None}
+        out.setdefault(n["type"], []).append((n, feeders))
+    return out
+
+
+def test_template_4_is_the_two_node_path_axis_to_apply():
+    chain = _chain(T4)
+    assert len(chain["HelmAxis"]) == 1 and len(chain["HelmApplyNode"]) == 1
+    assert not {"HelmShape", "HelmMix"} & set(chain)
+    apply_, feeders = chain["HelmApplyNode"][0]
+    assert feeders["helm"]["type"] == "HelmAxis"
+
+
+def test_template_5_chains_three_axes_into_mix_then_shape_then_apply():
+    chain = _chain(T5)
+    assert len(chain["HelmAxis"]) == 3
+    mix, mix_in = chain["HelmMix"][0]
+    assert {mix_in[k]["type"] for k in ("helm_1", "helm_2", "helm_3")} == {"HelmAxis"}
+    assert len({mix_in[k]["id"] for k in ("helm_1", "helm_2", "helm_3")}) == 3
+    shape, shape_in = chain["HelmShape"][0]
+    assert shape_in["helm"]["id"] == mix["id"]
+    apply_, apply_in = chain["HelmApplyNode"][0]
+    assert apply_in["helm"]["id"] == shape["id"]
+    for n in (mix, shape):
+        assert "experimental" in n["title"].lower(), "Shape and Mix are marked experimental on the canvas"
+    notes = " ".join(n["widgets_values"][0] for n in _load(T5)["nodes"] if n["type"] == "MarkdownNote")
+    assert "Experimental" in notes and "not yet measured" in notes
+
+
+def test_template_6_builds_the_axis_from_prompt_pairs_and_applies_it():
+    chain = _chain(T6)
+    ax, ax_in = chain["HelmAxis"][0]
+    source, idea, pairs, name = ax["widgets_values"][:4]
+    assert source == "prompts"
+    lines = [l for l in pairs.splitlines() if "||" in l]
+    assert len(lines) >= 3, "a multipurpose axis needs several pairs on different subjects"
+    assert {"model", "clip", "latent"} <= set(ax_in)
+    apply_, apply_in = chain["HelmApplyNode"][0]
+    assert apply_in["helm"]["id"] == ax["id"]
+
+
+@pytest.mark.parametrize("name", CHAIN_TEMPLATES)
+def test_chain_nodes_use_the_documented_defaults(name):
+    for node, _ in sum(_chain(name).values(), []):
+        if node["type"] == "HelmApplyNode":
+            assert node["widgets_values"] == [False, "push"]
+        if node["type"] == "HelmShape":
+            assert -1 <= node["widgets_values"][0] <= 1
+        if node["type"] == "HelmAxis":
+            assert node["widgets_values"][8] == "fixed", "seed does not change between runs"
+
+
+def test_template_colors_match_the_colors_web_helm_axes_js_gives_a_new_node():
+    js = open(os.path.join(PACK, "web", "helm_axes.js"), encoding="utf-8").read()
+    for cls, role in (("HelmAxis", "axis"), ("HelmShape", "shape"), ("HelmMix", "mix"), ("HelmApplyNode", "apply"),
+                      ("HelmDial", "shape"), ("HelmMakeAxis", "shape")):
+        m = re.search(role + r': \{ color: "(#[0-9a-f]+)", bgcolor: "(#[0-9a-f]+)"', js)
+        assert m and (m.group(1), m.group(2)) == ROLE_COLORS[cls], cls
+        assert re.search(cls + r': "' + role + '"', js), cls
+
+
 @pytest.mark.parametrize("name", sorted(STARTERS))
-def test_dial_axis_choice_is_a_menu_entry_that_fits_the_template_model(name, helm):
+def test_axis_choice_is_a_menu_entry_that_fits_the_template_model(name, helm):
     family, dim = STARTERS[name]
+    if name in CHAIN_TEMPLATES:
+        for node, _ in _chain(name)["HelmAxis"]:
+            if node["widgets_values"][0] == "prompts":
+                continue
+            choice = node["widgets_values"][1]
+            entry = helm.nodes._dial_resolve(choice)
+            assert choice in helm.nodes._dial_choices() and entry["family"] == family
+            assert helm.nodes._load_axis(helm.nodes._resolve_axis(entry["file"])).shape[0] == dim
+        return
     dial = next(n for n in _load(name)["nodes"] if n["type"] == "HelmDial")
     choice, amount = dial["widgets_values"]
     assert 0.0 <= amount <= 1.0
@@ -338,7 +444,7 @@ def test_legacy_notes_are_plain_language():
 @pytest.mark.parametrize("name", sorted(STARTERS))
 def test_graph_is_compact_so_it_opens_readable(name):
     """ComfyUI always fits a template to the window and, below about 60% zoom, draws nodes as empty boxes.
-    A 1600 x 900 window leaves about 1544 x 860 px; fit-to-view keeps a margin of about 25% (measured)."""
+    A 1600 x 900 window leaves about 1544 x 860 px; fit-to-view keeps a margin of about 25% (measured); the real browser shows about 4% more zoom than this estimate, and nodes are drawn as empty boxes below 0.6."""
     data = _load(name)
     xs = [n["pos"][0] for n in data["nodes"]] + [g["bounding"][0] for g in data["groups"]]
     xe = [n["pos"][0] + _footprint(n)[0] for n in data["nodes"]] + [g["bounding"][0] + g["bounding"][2] for g in data["groups"]]

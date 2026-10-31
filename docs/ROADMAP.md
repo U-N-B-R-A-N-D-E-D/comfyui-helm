@@ -1,23 +1,20 @@
 # Roadmap
 
-Status: **0.3.11** active in the Comfy Registry. 84 tests.
+Status: **0.4.0** active in the Comfy Registry. 211 tests.
 
 ## Now — what judges see first
 
-1. **Consistency pass.** README reports the pre-registered **10/53** push holds
-   and the post-hoc **7/53** strict ceiling (saturation <= 0.5, edge <= 2x
-   baseline); the Z-Image room-density axis ships `safe_max 0.25` (wash at 0.5)
-   and its template uses 0.25; the grid tooltip matches the code; public docs no
-   longer point at private paths.
-2. **Publish 0.3.11 to the Comfy Registry.** This is the entry point to
-   ComfyUI-Manager and the community; it adds the workflow axis guard, the
-   axis picker and `safe_max` warnings.
-3. **Video v32 + social post + submission.** Server-room spine: H3 `density`
+1. **UX release.** `Helm · Dial` and `Helm · Make Axis` are the entry points;
+   three flat starter templates put the prompt, the Dial and the result on the
+   canvas. The measured claim stays at **10/53** push holds and **7/53** strict.
+2. **Publish 0.4.0 to the Comfy Registry.** This is the entry point to
+   ComfyUI-Manager and the community.
+3. **Video + social post + submission.** Server-room spine: H3 `density`
    (the measured band) and the Z-Image `specular` axis at 1.5 (clean at that
    strength). One line on why it is different: a ~22 KB direction, no training,
    no extra sampling, measured negatives published.
-4. **Submit** with `#OpenSourceHiggsfield`, ideally before the build nights on
-   Oct 28-29.
+4. **0.5 is experimental.** The Axis / Shape / Mix / Apply chain stays out of
+   the release until its UX and GPU claims are validated.
 
 ## Next — research (after submission)
 

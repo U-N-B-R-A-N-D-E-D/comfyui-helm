@@ -12,7 +12,7 @@ In practice: more fog, less clutter, more cinematic light — one slider, no pro
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Format: safetensors](https://img.shields.io/badge/axes-.safetensors-brightgreen.svg)](#how-it-works)
 [![Tests: 211 passed](https://img.shields.io/badge/tests-211%20passed-success.svg)](docs/HARDENING.md)
-[![Comfy Registry](https://img.shields.io/badge/Comfy%20Registry-0.3.11%20Active-success.svg)](https://registry.comfy.org/nodes/comfyui-helm)
+[![Comfy Registry](https://img.shields.io/badge/Comfy%20Registry-0.4.0%20Active-success.svg)](https://registry.comfy.org/nodes/comfyui-helm)
 
 [**See it**](#see-it) · [**Benchmark**](#the-honest-benchmark) · [**What you'll see**](#what-youll-see) · [**Build an axis**](#build-your-own-axis-in-60-seconds) · [**All workflows**](#all-workflows) · [**Experiments (78 axes)**](docs/EXPERIMENTS.md) · [**Roadmap**](docs/ROADMAP.md)
 

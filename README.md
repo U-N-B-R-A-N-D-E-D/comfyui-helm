@@ -11,8 +11,8 @@ In practice: more fog, less clutter, more cinematic light — one slider, no pro
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Format: safetensors](https://img.shields.io/badge/axes-.safetensors-brightgreen.svg)](#how-it-works)
-[![Tests: 77 passed](https://img.shields.io/badge/tests-77%20passed-success.svg)](docs/HARDENING.md)
-[![Comfy Registry](https://img.shields.io/badge/Comfy%20Registry-0.3.10%20Active-success.svg)](https://registry.comfy.org/nodes/comfyui-helm)
+[![Tests: 84 passed](https://img.shields.io/badge/tests-84%20passed-success.svg)](docs/HARDENING.md)
+[![Comfy Registry](https://img.shields.io/badge/Comfy%20Registry-0.3.11%20Active-success.svg)](https://registry.comfy.org/nodes/comfyui-helm)
 
 [**See it**](#see-it) · [**Benchmark**](#the-honest-benchmark) · [**Start with Z-Image**](#start-with-z-image) · [**Build an axis**](#build-your-own-axis-in-60-seconds) · [**All workflows**](#all-workflows) · [**Experiments (78 axes)**](docs/EXPERIMENTS.md) · [**Roadmap**](docs/ROADMAP.md)
 
@@ -80,7 +80,7 @@ H3 is the flagship, but it needs a 21 GB int8 UNet and a 32B text encoder. **Sta
 1. **Install**
 
    ```bash
-   comfy node install comfyui-helm@0.3.10
+   comfy node install comfyui-helm@0.3.11
    ```
 
    Or clone into `ComfyUI/custom_nodes` and restart ComfyUI.
@@ -259,7 +259,7 @@ Zero silent guessing: an undeclared tuple block raises an explicit `RuntimeError
 - **Self-contained `.safetensors` axes (no pickle).** Header metadata (dim, block, model, module, norm, `safe_max`); the legacy `.pt` read path is kept for 0.2.0 axes and loads strictly with `weights_only=True`.
 - **Resolution order without metadata shadowing.** `user/steer` → `models/steer` → `example_axes/` (preferring `.safetensors` over a legacy `.pt` in the same directory); metadata comes strictly from the axis's own `.safetensors` header or sidecar, so a bundled axis never shadows a user's file. A missing axis raises a `FileNotFoundError` listing every directory searched.
 - **MiniMax H3 aimdo bypass.** `aimdo_enabled = False` strictly for the wrapped call, restored in the `finally` block along with hook removal.
-- **77 automated tests** (73 test functions; one parametrised over five block attributes) — silent-failure modes pinned; the full defect log is [`docs/HARDENING.md`](docs/HARDENING.md).
+- **84 automated tests** — silent-failure modes pinned; the full defect log is [`docs/HARDENING.md`](docs/HARDENING.md).
 
 ```bash
 curl -s http://127.0.0.1:8188/object_info | grep -o 'Helm[A-Za-z]*' | sort -u

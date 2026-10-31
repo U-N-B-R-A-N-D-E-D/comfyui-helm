@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.11 — 2026-10-30
+
+- Krea2 and LTX templates no longer point at the shipped H3 `mood` axis; they
+  use explicit `krea2_axis` / `ltx_axis` build-first placeholders.
+- Added `tests/test_workflow_axes.py`: every `HelmApply` in a shipped workflow
+  must use a calibrated axis with the right dimension, or a declared placeholder.
+- `strength=0` is now a byte-exact passthrough in `push`, `norm` and `clamp`.
+- `HelmApply` refuses an axis whose dimension does not match the calibrated model
+  before sampling, with an actionable error.
+- Added the ComfyUI `axis library` picker from `/helm/axes`; axes without
+  `safe_max` now warn instead of running silently unclamped.
+- H3 calibration max aligned with the shipped `safe_max: 0.3`; a per-axis
+  `safe_max` is authoritative over the model-level band.
+- Removed hard-coded private media paths from the study generator; use
+  `HELM_MEDIA_ROOT` / `HELM_FONT_PATH` instead.
+- 84 tests.
+
 ## 0.3.10 — 2026-10-27
 
 - Publish hygiene: dev-only files (`tests/`, `docs/`, `study/`, `.github/`,

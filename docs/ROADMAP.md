@@ -1,7 +1,6 @@
 # Roadmap
 
-Status: **0.3.10** active in the Comfy Registry.
-(0.3.9 remains flagged by a test-only false positive; 77 tests.) Deadline: **2026-10-30, 09:00 PT**.
+Status: **0.3.11** active in the Comfy Registry. 84 tests.
 
 ## Now — what judges see first
 
@@ -10,8 +9,9 @@ Status: **0.3.10** active in the Comfy Registry.
    baseline); the Z-Image room-density axis ships `safe_max 0.25` (wash at 0.5)
    and its template uses 0.25; the grid tooltip matches the code; public docs no
    longer point at private paths.
-2. **Publish 0.3.10 to the Comfy Registry.** This is the entry point to
-   ComfyUI-Manager and the community; the version and metadata are ready.
+2. **Publish 0.3.11 to the Comfy Registry.** This is the entry point to
+   ComfyUI-Manager and the community; it adds the workflow axis guard, the
+   axis picker and `safe_max` warnings.
 3. **Video v32 + social post + submission.** Server-room spine: H3 `density`
    (the measured band) and the Z-Image `specular` axis at 1.5 (clean at that
    strength). One line on why it is different: a ~22 KB direction, no training,

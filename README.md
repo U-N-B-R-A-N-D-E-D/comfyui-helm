@@ -129,11 +129,11 @@ Open ComfyUI's **Templates** browser, search **`helm`**, or drag a workflow from
 | **`z_image_helm.json`** | **Z-Image / Lumina2** | Steer image generation across verified layers 9–21. |
 | **`h3_t2v_helm.json`** | **MiniMax H3** (Video) | **The flagship app:** type a prompt, move the `mood` & `density` sliders, hit Queue. |
 | **`h3_i2v_helm.json`** | **MiniMax H3** (I2V) | Image-to-video generation with live activation steering. |
-| **`krea2_helm.json`** | **Krea2** | Image generation with `HelmApply` wired between LoRA loader and sampler. *(Template wired; not yet execution-validated.)* |
+| **`krea2_helm.json`** | **Krea2** | Image generation with `HelmApply` wired between LoRA loader and sampler. *(Build a Krea2 axis first; template wired, not yet execution-validated.)* |
 | **`krea2_helm_collect.json`** | **Krea2** | Two-pass collection graph to build a custom axis from text contrast. *(Template wired; not yet execution-validated.)* |
 | **`krea2_helm_image_axis.json`** | **Krea2** (Img2Img) | Extract an axis directly from two contrast images — no contrast prompt needed. *(Template wired; not yet execution-validated.)* |
 | **`helm_vector.json`** | *Model-agnostic* | `HelmVector → PreviewAny`: subtract two collected tags into a reusable `.safetensors` axis. |
-| **`ltx_t2v_helm.json`** | **LTX-2.3** (Video) | Official LTX blueprint wired with `HelmApply` (structural hook ready; `tested: false`). |
+| **`ltx_t2v_helm.json`** | **LTX-2.3** (Video) | Official LTX blueprint wired with `HelmApply`. *(Build an LTX axis first; structural hook ready, `tested: false`.)* |
 | **`api/h3_t2v_helm_api.json`** | **Comfy SDK / API** | API-format workflow driven by `app/run_helm.py`. |
 
 Measured with Helm: MiniMax H3 t2v (`mood`, `density`) and Z-Image. The models used for generation elsewhere (Krea 2 stills, Qwen Image Edit, LTX/Flux tests) are **not** Helm-measured: Krea 2 templates are wired without a calibration entry, LTX ships `tested: false`, Qwen-Image/SD3 are refused by the tuple guard until declared/measured, and Flux is declared but has no dose. No Helm claim rests on them.
@@ -212,13 +212,13 @@ Both methods start from the same full-room prompt and move toward empty (Z-Image
 
 ## Calibration table (`calibration.json`)
 
-| Model | Module | Blocks | Hidden dim | Default block | Verified band | Usable strength | Axis norm |
+| Model | Module | Blocks | Hidden dim | Default block | Verified block band | Model-level strength* | Axis norm |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | MiniMax H3 | `blocks` | 50 | 5376 | 20 | 15–35 | 0.01–0.30 | ~3000–4000 |
-| Z-Image / Lumina2 | `layers` | 30 | 3840 | 15 | 9–21 | 0.50–3.00 | ~19 |
+| Z-Image / Lumina2 | `layers` | 30 | 3840 | 15 | 9–21 | 0.50–3.00* | ~19 |
 | LTX-2.3 | `transformer_blocks` | — | — | 20 | — | — | — |
 
-The shipped H3 axes record `safe_max: 0.3`; the shipped Z-Image room-density axis records 0.25 (its wash is visible at 0.5). `HelmApply` clamps any strength past the recorded `safe_max`. LTX-2.3 ships flag-wrapped defaults with `tested: false` — the `transformer_blocks` module is wired, and the numbers are H3-derived placeholders pending a sweep. Axis scale is model-specific; confirm every model with 1–2 renders. And the Z-Image band is not a law: on the §E benchmark axis the wash is already visible at 0.5, so check the wash onset per axis.
+`*` The Z-Image model-level band comes from the green-magenta axis. The shipped `z_room_density` axis records `safe_max: 0.25` (its wash is visible at 0.5), and the shipped H3 axes record `safe_max: 0.3`; a per-axis `safe_max` always wins. `HelmApply` clamps any strength past it. LTX-2.3 ships flag-wrapped defaults with `tested: false` — the `transformer_blocks` module is wired, and the numbers are placeholders pending a sweep. Axis scale is model-specific; confirm every model with 1–2 renders. And the Z-Image band is not a law: check the wash onset per axis.
 
 ### Study layer
 

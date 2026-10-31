@@ -221,10 +221,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "Helm on Krea-2 Turbo (Text to Image).\n\nOfficial Krea-2 Turbo blueprint with HelmApply inserted between the model switch and the KSampler.\nBlock/strength are H3 defaults - confirm with a sweep (see calibration.json)."
+        "text": "Helm on Krea-2 Turbo (Text to Image).\n\nOfficial Krea-2 Turbo blueprint with HelmApply inserted between the model switch and the KSampler.\nBuild a Krea2 axis first with krea2_helm_collect; no shipped axis is calibrated for Krea2.\nBlock/strength are placeholders - confirm with a sweep (see calibration.json)."
       },
       "widgets_values": [
-        "Helm on Krea-2 Turbo (Text to Image).\n\nOfficial Krea-2 Turbo blueprint with HelmApply inserted between the model switch and the KSampler.\nBlock/strength are H3 defaults - confirm with a sweep (see calibration.json)."
+        "Helm on Krea-2 Turbo (Text to Image).\n\nOfficial Krea-2 Turbo blueprint with HelmApply inserted between the model switch and the KSampler.\nBuild a Krea2 axis first with krea2_helm_collect; no shipped axis is calibrated for Krea2.\nBlock/strength are placeholders - confirm with a sweep (see calibration.json)."
       ]
     }
   ],
@@ -1795,7 +1795,7 @@
               "Node name for S&R": "HelmApply"
             },
             "widgets_values": [
-              "mood",
+              "krea2_axis",
               20,
               0.1
             ]

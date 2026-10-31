@@ -9,7 +9,8 @@
       "model_class": "NextDiT",
       "fallback_safe_max": 2.8064,
       "shipped": true,
-      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 0.673, saturation 0.138; highest strength tested (and held) = 2.8064. Pre-registered criterion: docs/EXPERIMENTS.md section F."
+      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 0.673, saturation 0.138; highest strength tested (and held) = 2.8064. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
+      "preview": "previews/z_raking_light_angle.webp"
     },
     {
       "file": "z_volumetric_beams",
@@ -27,7 +28,8 @@
       "model_class": "NextDiT",
       "fallback_safe_max": 2.3931,
       "shipped": true,
-      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.372, saturation 0.435; highest strength tested (and held) = 2.3931. Pre-registered criterion: docs/EXPERIMENTS.md section F."
+      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.372, saturation 0.435; highest strength tested (and held) = 2.3931. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
+      "preview": "previews/z_overcast_vs_direct.webp"
     },
     {
       "file": "z_surface_reflection_intensity",
@@ -54,7 +56,8 @@
       "model_class": "NextDiT",
       "fallback_safe_max": 4.5327,
       "shipped": true,
-      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.647, saturation 0.490; highest strength tested (and held) = 4.5327. Pre-registered criterion: docs/EXPERIMENTS.md section F."
+      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.647, saturation 0.490; highest strength tested (and held) = 4.5327. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
+      "preview": "previews/z_aisle_width.webp"
     },
     {
       "file": "z_corridor_orientation",
@@ -63,7 +66,8 @@
       "model_class": "NextDiT",
       "fallback_safe_max": 9.5532,
       "shipped": true,
-      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.980, saturation 0.486; highest strength tested (and held) = 9.5532. Pre-registered criterion: docs/EXPERIMENTS.md section F."
+      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.980, saturation 0.486; highest strength tested (and held) = 9.5532. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
+      "preview": "previews/z_corridor_orientation.webp"
     },
     {
       "file": "z_room_density",
@@ -81,7 +85,8 @@
       "model_class": "MiniMaxH3Model",
       "fallback_safe_max": 0.3,
       "shipped": true,
-      "evidence": "docs/EXPERIMENTS.md section A (dose-response, seed 23 replicates): saturation and edge density fall monotonically up to 0.30; past ~0.45 the frame washes out."
+      "evidence": "docs/EXPERIMENTS.md section A (dose-response, seed 23 replicates): saturation and edge density fall monotonically up to 0.30; past ~0.45 the frame washes out.",
+      "preview": "previews/density.webp"
     }
   ]
 }

@@ -1,4 +1,7 @@
-"""Draws a schematic preview (boxes for groups and nodes) next to each starter template.
+"""Draws a schematic preview (boxes for groups and nodes) for a starter template.
+
+Only helm_3_make_your_own_axis uses it: its axis is made on the spot, so there is no stored render to show.
+Templates 1 and 2 use real before/after frames from our own Helm measurement renders.
 
     python tools/render_previews.py     (needs Pillow)
 
@@ -51,6 +54,5 @@ def render(stem):
     im.save(os.path.join(WF, stem + ".png"), optimize=True)
 
 
-for k in NAMES:
-    render(k)
-print("wrote", len(NAMES), "previews")
+render("helm_3_make_your_own_axis")
+print("wrote 1 preview")

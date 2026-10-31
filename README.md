@@ -11,7 +11,7 @@ In practice: more fog, less clutter, more cinematic light — one slider, no pro
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Format: safetensors](https://img.shields.io/badge/axes-.safetensors-brightgreen.svg)](#how-it-works)
-[![Tests: 164 passed](https://img.shields.io/badge/tests-164%20passed-success.svg)](docs/HARDENING.md)
+[![Tests: 177 passed](https://img.shields.io/badge/tests-177%20passed-success.svg)](docs/HARDENING.md)
 [![Comfy Registry](https://img.shields.io/badge/Comfy%20Registry-0.3.11%20Active-success.svg)](https://registry.comfy.org/nodes/comfyui-helm)
 
 [**See it**](#see-it) · [**Benchmark**](#the-honest-benchmark) · [**What you'll see**](#what-youll-see) · [**Build an axis**](#build-your-own-axis-in-60-seconds) · [**All workflows**](#all-workflows) · [**Experiments (78 axes)**](docs/EXPERIMENTS.md) · [**Roadmap**](docs/ROADMAP.md)
@@ -93,6 +93,19 @@ Or clone into `ComfyUI/custom_nodes` and restart ComfyUI.
 The other two starters: **`helm_2_video_h3`** is the same Dial on MiniMax H3 video (core nodes; needs a ComfyUI recent enough to ship the H3 nodes, checked on 0.43.2; the int8 UNet does not fit in 24 GB). **`helm_3_make_your_own_axis`** shows **Helm · Make Axis**: type the idea twice (with it, without it), press Run, and the new axis is saved and dialed straight away.
 
 The *Essentials* in the Dial menu are only axes that hold up in this repo's own benchmark ([the honest benchmark](#the-honest-benchmark), [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md)). Essentials, in order: light angle (raking), volumetric light beams, overcast to direct sun, surface reflections, motion blur, aisle width, corridor orientation (Z-Image), then less clutter (Z-Image and MiniMax H3). Anything you make or drop in appears under *Custom* and is **not** benchmarked.
+
+Real before/after for the Essentials that have a clear pair (same prompt and seed, Amount 0 against Amount 1.0 = the axis' `safe_max` (the H3 pair uses Amount 0.67); sources in [`docs/AXES.md`](docs/AXES.md)):
+
+| Dial name | Before (left) and After (right) |
+| :--- | :--- |
+| Light angle (raking) | ![](web/previews/z_raking_light_angle.webp) |
+| Overcast ↔ direct sun | ![](web/previews/z_overcast_vs_direct.webp) |
+| Aisle width | ![](web/previews/z_aisle_width.webp) |
+| Corridor orientation | ![](web/previews/z_corridor_orientation.webp) |
+| Less clutter (MiniMax H3) | ![](web/previews/density.webp) |
+
+Volumetric light beams, surface reflections, motion blur and the Z-Image "less clutter" axis have no clear real pair within their safe range, so they have no thumbnail.
+
 
 ## Build your own axis in 60 seconds
 
@@ -275,7 +288,7 @@ Zero silent guessing: an undeclared tuple block raises an explicit `RuntimeError
 - **Self-contained `.safetensors` axes (no pickle).** Header metadata (dim, block, model, module, norm, `safe_max`); the legacy `.pt` read path is kept for 0.2.0 axes and loads strictly with `weights_only=True`.
 - **Resolution order without metadata shadowing.** `user/steer` → `models/steer` → `example_axes/` (preferring `.safetensors` over a legacy `.pt` in the same directory); metadata comes strictly from the axis's own `.safetensors` header or sidecar, so a bundled axis never shadows a user's file. A missing axis raises a `FileNotFoundError` listing every directory searched.
 - **MiniMax H3 aimdo bypass.** `aimdo_enabled = False` strictly for the wrapped call, restored in the `finally` block along with hook removal.
-- **165 automated tests** (one optional check needs a ComfyUI checkout) — silent-failure modes pinned; the full defect log is [`docs/HARDENING.md`](docs/HARDENING.md).
+- **178 automated tests** (one optional check needs a ComfyUI checkout) — silent-failure modes pinned; the full defect log is [`docs/HARDENING.md`](docs/HARDENING.md).
 
 ```bash
 curl -s http://127.0.0.1:8188/object_info | grep -o 'Helm[A-Za-z]*' | sort -u

@@ -75,12 +75,13 @@ Higgsfield put cinematic look and set controls behind a closed cloud studio. Hel
 
 ## What you'll see
 
-Install, restart ComfyUI, then open **Templates -> search `helm` -> `helm_1_start_here`** ("Helm 1 · Start here (Z-Image)"). Nothing is hidden in a subgraph. Left to right you get:
+Install, restart ComfyUI, then open **Templates -> search `helm` -> "Helm 1. Start here (Z-Image)"**. Nothing is hidden in a subgraph. A note in the top-left corner gives the three steps (write your prompt, move Amount, Run). Left to right you get:
 
 1. **Your prompt** (green box): write what you want.
-2. **Models**: leave as they are.
-3. **The Dial** (orange box): pick an idea from the menu (for example *Light angle (raking)*) and move **Amount** from 0 to 1. 0 is off; 1 is the strongest setting that still looks right for that idea.
-4. **Result: Before | After**: one Run renders your prompt twice with the same seed, once with the Dial off and once with your Amount, side by side.
+2. **The Dial** (orange box): pick an idea from the menu (for example *Light angle (raking)*) and move **Amount** from 0 to 1. 0 is off; 1 is the strongest setting that still looks right for that idea. A line under the slider says what it is doing ("Light angle (raking) at 60%").
+3. **Result: Before | After**: one Run renders your prompt twice with the same seed, once with the Dial off and once with your Amount, side by side.
+
+The models sit in a grey group (collapsed to one line each, leave them as they are). Why the templates look like this: [`docs/UX-NOTES.md`](docs/UX-NOTES.md).
 
 That is the whole product: one slider moves one idea, and your prompt is never rewritten. The first template needs Z-Image (consumer GPU, core ComfyUI nodes only).
 
@@ -90,11 +91,11 @@ comfy node install comfyui-helm
 
 Or clone into `ComfyUI/custom_nodes` and restart ComfyUI.
 
-The other two starters: **`helm_2_video_h3`** is the same Dial on MiniMax H3 video (core nodes; needs a ComfyUI recent enough to ship the H3 nodes, checked on 0.43.2; the int8 UNet does not fit in 24 GB). **`helm_3_make_your_own_axis`** shows **Helm · Make Axis**: type the idea twice (with it, without it), press Run, and the new axis is saved and dialed straight away.
+The other two starters: **"Helm 2. Video (MiniMax H3)"** is the same Dial on MiniMax H3 video (core nodes; needs a ComfyUI recent enough to ship the H3 nodes, checked on 0.43.2; the int8 UNet does not fit in 24 GB). **"Helm 3. Make your own axis"** shows **Helm · Make Axis**: type the idea twice (with it, without it), press Run, and the new axis is saved and dialed straight away.
 
-The *Essentials* in the Dial menu are only axes that hold up in this repo's own benchmark ([the honest benchmark](#the-honest-benchmark), [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md)). Essentials, in order: light angle (raking), volumetric light beams, overcast to direct sun, surface reflections, motion blur, aisle width, corridor orientation (Z-Image), then less clutter (Z-Image and MiniMax H3). Anything you make or drop in appears under *Custom* and is **not** benchmarked.
+The *Essentials* in the Dial menu are only axes that hold up in this repo's own benchmark ([the honest benchmark](#the-honest-benchmark), [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md)). Essentials are listed by how visible the change is: corridor orientation, aisle width, overcast to direct sun, light angle (raking) (all Z-Image), then less clutter (Z-Image and MiniMax H3). A second section, *Subtle*, holds three axes that hold in the benchmark but show little visible change in our renders: surface reflections, volumetric light beams, motion blur. Anything you make or drop in appears under *Custom* and is **not** benchmarked.
 
-Real before/after for the Essentials that have a clear pair (same prompt and seed, Amount 0 against Amount 1.0 = the axis' `safe_max` (the H3 pair uses Amount 0.67); sources in [`docs/AXES.md`](docs/AXES.md)):
+Real before/after for the Essentials that have a clear pair (same prompt and seed, "Before" is Amount 0 and "After" is Amount 1.0, or 0.67 for the H3 pair; the technical numbers and sources are in [`docs/AXES.md`](docs/AXES.md)):
 
 | Dial name | Before (left) and After (right) |
 | :--- | :--- |
@@ -104,12 +105,12 @@ Real before/after for the Essentials that have a clear pair (same prompt and see
 | Corridor orientation | ![](web/previews/z_corridor_orientation.webp) |
 | Less clutter (MiniMax H3) | ![](web/previews/density.webp) |
 
-Volumetric light beams, surface reflections, motion blur and the Z-Image "less clutter" axis have no clear real pair within their safe range, so they have no thumbnail.
+The Subtle axes and the Z-Image "less clutter" axis have no clear real pair within their safe range, so they have no thumbnail.
 
 
 ## Build your own axis in 60 seconds
 
-Open `helm_3_make_your_own_axis`, type two prompts (**with the idea**, **without the idea**; change only the idea) and press Run. **Helm · Make Axis** runs both contrast passes in one execution, saves the axis to `ComfyUI/user/steer/`, and the **Dial** picks it up. Its safe range is an estimate (0.5% of the activation norm), not a measurement: trust the Before | After picture.
+Open "Helm 3. Make your own axis", type two prompts (**with the idea**, **without the idea**; change only the idea) and press Run. **Helm · Make Axis** runs both contrast passes in one execution, saves the axis to `ComfyUI/user/steer/`, and the **Dial** picks it up. Its safe range is an estimate (0.5% of the activation norm), not a measurement: trust the Before | After picture.
 
 The manual route still exists under `Helm/Lab`: `Record activations` (run twice) → `Build axis from two recordings` (`HelmCollect(tag=pos)` + `HelmCollect(tag=neg)` → `HelmVector`). Point `Apply axis (manual strength)` (`HelmApply`) at the result. `block=-1` reads the block from the file header; `safe_max` keeps the dial inside the measured band. No training, no adapter, no checkpoint.
 
@@ -128,13 +129,13 @@ Prebuilt axes ship inside `example_axes/` and resolve automatically on a fresh c
 
 Open ComfyUI's **Templates** browser and search **`helm`**, or drag a workflow from `example_workflows/` onto the canvas.
 
-**Starter templates (the template browser lists exactly these three):**
+**Starter templates (the template browser lists exactly these three; ComfyUI shows the file name as the title and `<file name>.jpg` as the thumbnail):**
 
 | Template | Model | What it does |
 | :--- | :--- | :--- |
-| **`helm_1_start_here`** | **Z-Image** | Dial + Before \| After. Core ComfyUI nodes only; consumer GPU. |
-| **`helm_2_video_h3`** | **MiniMax H3** (video) | The same Dial on video; renders Before and After. Needs the H3 UNet (~21 GB int8, not for 24 GB) + Qwen3-VL 32B text encoder. |
-| **`helm_3_make_your_own_axis`** | **Z-Image** | **Make Axis** -> **Dial**. Image models with plain text prompts. |
+| **Helm 1. Start here (Z-Image)** | **Z-Image** | Dial + Before \| After. Core ComfyUI nodes only; consumer GPU. |
+| **Helm 2. Video (MiniMax H3)** | **MiniMax H3** (video) | The same Dial on video; renders Before and After. Needs the H3 UNet (~21 GB int8, not for 24 GB) + Qwen3-VL 32B text encoder. |
+| **Helm 3. Make your own axis** | **Z-Image** | **Make Axis** -> **Dial**. Image models with plain text prompts. |
 
 **Older templates (`example_workflows/legacy/`, kept so old links still load; notes rewritten in plain language):**
 
@@ -168,7 +169,7 @@ Measured with Helm: MiniMax H3 t2v (`mood`, `density`) and Z-Image. The models u
 
 Class names are unchanged from 0.3.x, so saved workflows still load; only the menu location and display names changed.
 
-- **`HelmDial` (MODEL → MODEL):** `axis` is a menu of human names: *Essentials* (axes this repo's benchmark shows hold; listed only when the axis file is on disk; catalog in `axes_catalog.json`) then *Custom* (everything else, including axes made by Make Axis). `amount` maps 0 → `safe_max` recorded in the axis header (falling back to the catalog's highest tested strength); it never extrapolates. Delegates to `HelmApply`, so the hook is the same code. Refuses, in plain words, an axis made for another model. Optional `axis_from` takes the `axis` output of Make Axis.
+- **`HelmDial` (MODEL → MODEL):** `axis` is a menu of human names: *Essentials* (axes this repo's benchmark shows hold, ordered by visible impact; listed only when the axis file is on disk; catalog in `axes_catalog.json`), *Subtle* (hold, but little visible change) then *Custom* (everything else, including axes made by Make Axis). `amount` maps 0 → `safe_max` recorded in the axis header (falling back to the catalog's highest tested strength); it never extrapolates. Delegates to `HelmApply`, so the hook is the same code. Refuses, in plain words, an axis made for another model. Optional `axis_from` takes the `axis` output of Make Axis.
 - **`HelmMakeAxis` (MODEL + CLIP + LATENT → MODEL, STRING):** encodes the two prompts, runs two short renders through ComfyUI's own sampler with the same hook machinery as `HelmCollect`, subtracts the means (same arithmetic as `HelmVector`), and saves a self-describing axis with an *estimated* conservative `safe_max` (0.5% of the activation norm; stored with `safe_max_source`, never presented as verified). Works with models that take plain text conditioning (Z-Image today); for H3 build axes with the Lab nodes.
 
 - **`HelmCollect` (MODEL → MODEL):** hooks `diffusion_model.<blocks>[K]`, accumulates the mean activation across sampling steps, and writes `ComfyUI/user/steer/<tag>.safetensors` once per run. Includes `cond_only` to isolate conditional batch items.

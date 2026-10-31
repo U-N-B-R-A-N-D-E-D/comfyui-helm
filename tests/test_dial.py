@@ -120,15 +120,16 @@ def test_validate_inputs_accepts_an_axis_that_does_not_exist_yet(helm):
 
 # --- the menu -----------------------------------------------------------------------------
 
-def test_menu_lists_essentials_then_custom(helm):
+def test_menu_lists_essentials_then_subtle_then_custom(helm):
     _axis(helm, "my_fog")
     choices = helm.nodes._dial_choices()
     assert "Essentials · Less clutter (Z-Image)" in choices
     assert "Essentials · Less clutter (MiniMax H3)" in choices
+    assert "Subtle · Motion blur (Z-Image)" in choices
     assert "Custom · my_fog" in choices
     assert "Custom · mood" in choices  # shipped but not benchmarked -> Custom, never Essentials
-    first_custom = min(i for i, c in enumerate(choices) if c.startswith("Custom"))
-    assert all(c.startswith("Essentials") for c in choices[:first_custom])
+    sections = [c.split(" · ")[0] for c in choices]
+    assert sections == sorted(sections, key=["Essentials", "Subtle", "Custom"].index), "section order"
 
 
 def test_menu_hides_recordings_and_absent_catalog_axes(helm, monkeypatch):
@@ -206,10 +207,17 @@ def _provenance():
     return rows
 
 
-def test_every_essentials_entry_has_its_file_and_a_resolvable_safe_max(helm):
-    entries = [e for e in helm.nodes._dial_entries() if e["section"] == "Essentials"]
-    catalog = json.load(open(os.path.join(helm.root, "axes_catalog.json")))["axes"]
-    assert [e["file"] for e in entries] == [a["file"] for a in catalog], "menu follows catalog order"
+SUBTLE_FILES = {"z_volumetric_beams", "z_surface_reflection_intensity", "z_motion_blur"}
+
+
+def _catalog(helm):
+    return json.load(open(os.path.join(helm.root, "axes_catalog.json")))["axes"]
+
+
+def test_every_menu_entry_has_its_file_and_a_resolvable_safe_max(helm):
+    entries = [e for e in helm.nodes._dial_entries() if e["section"] in ("Essentials", "Subtle")]
+    catalog = _catalog(helm)
+    assert sorted(e["file"] for e in entries) == sorted(a["file"] for a in catalog)
     assert len(entries) == 9
     for e in entries:
         path = helm.nodes._resolve_axis(e["file"])
@@ -218,9 +226,64 @@ def test_every_essentials_entry_has_its_file_and_a_resolvable_safe_max(helm):
         assert helm.nodes._dial_strength(1.0, e["safe_max"]) == pytest.approx(e["safe_max"])
 
 
-def test_essentials_light_and_atmosphere_come_first(helm):
-    labels = [e["label"] for e in helm.nodes._dial_entries() if e["section"] == "Essentials"]
-    assert labels[:3] == ["Light angle (raking)", "Volumetric light beams", "Overcast \u2194 direct sun"]
+def test_subtle_section_holds_exactly_the_three_axes_with_little_visible_effect(helm):
+    by = {e["file"]: e["section"] for e in helm.nodes._dial_entries()}
+    assert {f for f, sec in by.items() if sec == "Subtle"} == SUBTLE_FILES
+    assert {f for f, sec in by.items() if sec == "Essentials"} == {
+        "z_corridor_orientation", "z_aisle_width", "z_overcast_vs_direct", "z_raking_light_angle",
+        "z_room_density", "density"}
+
+
+def test_essentials_are_ordered_by_visible_impact(helm):
+    """visible_impact = top-dose saturation + peak luminance shift + |edge ratio - 1|, all from axes.csv."""
+    import csv
+    rows = {r["axis"]: r for r in csv.DictReader(open(os.path.join(helm.root, "study", "data", "axes.csv")))}
+
+    def score(f):
+        r = rows[f]
+        return round(float(r["sat_top"]) + float(r["lum_delta_max"]) + abs(float(r["edge_ratio_top"]) - 1), 3)
+
+    catalog = _catalog(helm)
+    for a in catalog:
+        if a["file"] in rows:
+            assert a["visible_impact"] == pytest.approx(score(a["file"])), a["file"]
+    ess = [a for a in catalog if a["tier"] == "essential" and "visible_impact" in a]
+    assert [a["visible_impact"] for a in ess] == sorted((a["visible_impact"] for a in ess), reverse=True)
+    sub = [a for a in catalog if a["tier"] == "subtle"]
+    assert [a["visible_impact"] for a in sub] == sorted((a["visible_impact"] for a in sub), reverse=True)
+    assert max(a["visible_impact"] for a in sub) < min(a["visible_impact"] for a in ess)
+    # the menu follows that order, Essentials first, then Subtle
+    menu = [e["file"] for e in helm.nodes._dial_entries() if e["section"] != "Custom"]
+    assert menu == [a["file"] for a in sorted(catalog, key=lambda a: a["tier"] == "subtle")]
+
+
+def test_new_dial_starts_on_a_plain_readable_idea(helm):
+    default = helm.nodes.HelmDial.INPUT_TYPES()["required"]["axis"][1]["default"]
+    assert default == "Essentials · Light angle (raking) (Z-Image)"
+    assert helm.nodes._dial_default(["Custom · x"]) == "Custom · x"
+
+
+@pytest.mark.parametrize("amount,words", [(0.6, "Light angle (raking) at 60%"), (0.0, "Light angle (raking) at 0% (Dial off)"),
+                                           (1.0, "Light angle (raking) at 100%"), (7, "Light angle (raking) at 100%")])
+def test_dial_says_what_it_does_in_plain_words(helm, amount, words):
+    assert helm.nodes._dial_words("Light angle (raking)", amount) == words
+
+
+def test_dial_logs_the_plain_words(helm, capsys):
+    _axis(helm, "ax", safe_max=0.4)
+    helm.nodes.HelmDial().run(_model(), "Custom · ax", 0.6)
+    assert "Dial: ax at 60%" in capsys.readouterr().out
+
+
+def test_every_input_of_every_node_has_a_tooltip_and_every_node_a_description(helm):
+    for name, cls in helm.nodes.NODE_CLASS_MAPPINGS.items():
+        assert len(cls.DESCRIPTION) > 30, name
+        assert cls.SEARCH_ALIASES, name
+        # Lab nodes are found by what they do; only the two main nodes carry the pack name, so they rank first
+        assert ("helm" in " ".join(cls.SEARCH_ALIASES).lower()) == (cls.CATEGORY == "Helm"), name
+        for section in cls.INPUT_TYPES().values():
+            for inp, cfg in section.items():
+                assert len(cfg) > 1 and len(cfg[1].get("tooltip", "")) > 8, (name, inp)
 
 
 def test_shipped_z_image_axes_match_the_provenance_table(helm):

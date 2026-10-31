@@ -18,7 +18,7 @@ The tensor bytes are exactly as captured. Only the safetensors header was rewrit
 
 ## Preview renders
 
-Before/after thumbnails in `web/previews/` and the template previews are real Helm renders. Same prompt and seed (11) in each pair; Amount 0 against a strength at or below the axis' `safe_max`; nothing from the washed range. Axes with no clear real pair (volumetric light beams, surface reflections, motion blur, and the "less clutter" Z-Image axis, whose only stored pair goes past its safe range) have no thumbnail.
+Before/after thumbnails in `web/previews/` and the template previews are real Helm renders. Same prompt and seed (11) in each pair; Amount 0 against a strength at or below the axis' `safe_max`; nothing from the washed range. Axes with no clear real pair (the three Subtle axes below, and the "less clutter" Z-Image axis, whose only stored pair goes past its safe range) have no thumbnail.
 
 | Preview | Source run | Render files | After strength | Amount |
 |:--|:--|:--|--:|--:|
@@ -27,7 +27,27 @@ Before/after thumbnails in `web/previews/` and the template previews are real He
 | `z_aisle_width.webp` | same | `z_aisle_width_s0` / `_s3.0` | 4.5327 | 1.0 |
 | `z_corridor_orientation.webp` | same | `z_corridor_orientation_s0` / `_s3.0` | 9.5532 | 1.0 |
 | `density.webp` | MiniMax H3 density dose sweep (`docs/images/density_sweep.png`, EXPERIMENTS.md section A) | mid frames at strength 0 and 0.20 | 0.20 | 0.67 |
-| `helm_1_start_here.png` | Z-Image dose run, seed 11 | `z_raking_light_angle_s0`, `_s1.5`, `_s3.0` | 1.4032 / 2.8064 | 0.5 / 1.0 |
-| `helm_2_video_h3.png` | H3 density sweep, as above | mid frames at strength 0 and 0.20 | 0.20 | 0.67 |
+| `Helm 1. Start here (Z-Image).jpg` | same frames as `z_raking_light_angle.webp` | `z_raking_light_angle_s0` / `_s3.0` | 2.8064 | 1.0 |
+| `Helm 2. Video (MiniMax H3).jpg` | same frames as `density.webp` | mid frames at strength 0 and 0.20 | 0.20 | 0.67 |
 
-The Z-Image renders are 704 px, resized and stripped of metadata. `helm_3_make_your_own_axis.png` is a layout drawing, not a render, because that axis is made on the spot. The Z-Image base prompt is not recorded alongside the render files, so it is not quoted here.
+The images show only plain labels ("Before", "After (Amount 1.0)"); the strengths in the table above are the technical numbers. The Z-Image renders are 704 px, resized and stripped of metadata; `tools/render_previews.py` re-labels the frames and builds the square template thumbnails (no GPU). `Helm 3. Make your own axis.jpg` is a layout drawing, not a render, because that axis is made on the spot. The Z-Image base prompt is not recorded alongside the render files, so it is not quoted here.
+
+## Essentials and Subtle
+
+The Dial lists the shipped axes in two sections, in the order of `axes_catalog.json`.
+
+Essentials are ordered by **visible impact**, a score computed from [`study/data/axes.csv`](../study/data/axes.csv): the saturation shift at the top dose (`sat_top`) plus the peak luminance shift (`lum_delta_max`) plus `|edge_ratio_top - 1|`. It is stored as `visible_impact` in the catalog and checked by `tests/test_dial.py`. The two "less clutter" axes come from sweeps in [EXPERIMENTS.md](EXPERIMENTS.md) sections A and E rather than `axes.csv`, so they have no score and sit after the scored Essentials.
+
+**Subtle** holds the three axes that hold in the benchmark (`strict_push=holds`, monotone) but show no visible effect in our renders. Their scores are below every Essential.
+
+| Dial section | axis | visible_impact | safe_max |
+|:--|:--|--:|--:|
+| Essentials | `z_corridor_orientation` | 1.589 | 9.5532 |
+| Essentials | `z_aisle_width` | 1.334 | 4.5327 |
+| Essentials | `z_overcast_vs_direct` | 0.966 | 2.3931 |
+| Essentials | `z_raking_light_angle` | 0.661 | 2.8064 |
+| Essentials | `z_room_density` (less clutter, Z-Image) | n/a | 0.25 |
+| Essentials | `density` (less clutter, MiniMax H3) | n/a | 0.3 |
+| Subtle | `z_surface_reflection_intensity` | 0.348 | 3.036 |
+| Subtle | `z_volumetric_beams` | 0.204 | 2.0101 |
+| Subtle | `z_motion_blur` | 0.108 | 0.4913 |

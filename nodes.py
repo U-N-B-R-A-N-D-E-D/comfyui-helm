@@ -586,11 +586,15 @@ def _make_probe_hook(acc, tag, module, model_name, cond_only, write_mode):
 
 # --- the Dial: human axis names, amount 0-1 -----------------------------------------------
 # `axes_catalog.json` lists the axes the repo's own benchmark says HOLD (docs/EXPERIMENTS.md, study/).
-# Only those are offered as "Essentials", and only when the axis file is actually on disk. Anything else
-# found in the read dirs (your own axes, the shipped H3 `mood`) is offered under "Custom".
+# Only those are offered, and only when the axis file is actually on disk: "Essentials" (clearly visible
+# change, ordered by visible impact) first, then "Subtle" (holds in the benchmark, little visible change in our
+# renders). Anything else found in the read dirs (your own axes, the shipped H3 `mood`) is offered under "Custom".
 _CATALOG_PATH = os.path.join(_PACK_DIR, "axes_catalog.json")
 ESSENTIALS = "Essentials"
+SUBTLE = "Subtle"
 CUSTOM = "Custom"
+# Shown first when you add a Dial: a plain, easy-to-read idea. Falls back to the first menu entry.
+_DIAL_DEFAULT_FILE = "z_raking_light_angle"
 _SEP = " · "
 _NO_AXES = "(no axes yet - build one with Helm · Make Axis)"
 _MODEL_FAMILY = {"NextDiT": "Z-Image", "MiniMaxH3Model": "MiniMax H3"}
@@ -631,7 +635,7 @@ def _axis_names():
 
 
 def _dial_entries():
-    """Pure-ish (reads the axis dirs). The Dial's menu: Essentials first (catalog order), then Custom."""
+    """Pure-ish (reads the axis dirs). The Dial's menu: Essentials, then Subtle (catalog order), then Custom."""
     cat = _catalog()
     present = {}
     for name in _axis_names():
@@ -645,12 +649,14 @@ def _dial_entries():
         if meta is None:
             continue
         fam = c.get("family") or _family(c.get("model_class"))
+        section = SUBTLE if c.get("tier") == "subtle" else ESSENTIALS
         entries.append({
-            "choice": f"{ESSENTIALS}{_SEP}{c['label']} ({fam})", "label": c["label"], "section": ESSENTIALS,
+            "choice": f"{section}{_SEP}{c['label']} ({fam})", "label": c["label"], "section": section,
             "file": name, "family": fam, "model": meta.get("model") or c.get("model_class"),
             "safe_max": meta.get("safe_max") or c.get("fallback_safe_max"), "holds": True,
             "evidence": c.get("evidence"),
         })
+    entries.sort(key=lambda e: e["section"] == SUBTLE)  # stable: Essentials keep catalog order, Subtle follow
     for name in sorted(present):
         meta = present[name]
         fam = _family(meta.get("model")) if meta.get("model") else None
@@ -664,6 +670,19 @@ def _dial_entries():
 
 def _dial_choices():
     return [e["choice"] for e in _dial_entries()] or [_NO_AXES]
+
+
+def _dial_default(choices):
+    for e in _dial_entries():
+        if e["file"] == _DIAL_DEFAULT_FILE and e["choice"] in choices:
+            return e["choice"]
+    return choices[0]
+
+
+def _dial_words(label, amount):
+    """Pure. The one-line plain-words summary of what the Dial is doing: 'Light angle (raking) at 60%'."""
+    pct = int(round(min(1.0, max(0.0, float(amount))) * 100))
+    return f"{label} at {pct}%" + (" (Dial off)" if pct == 0 else "")
 
 
 def _dial_resolve(text):
@@ -776,9 +795,10 @@ class HelmCollect:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
-            "model": ("MODEL",),
-            "tag": ("STRING", {"default": "pos"}),
-            "block": ("INT", {"default": 20, "min": 0, "max": 512, "tooltip": "transformer block index to read"}),
+            "model": ("MODEL", {"tooltip": "The model to record from. The model passes through unchanged."}),
+            "tag": ("STRING", {"default": "pos",
+                               "tooltip": "Name of the recording. Record once with a prompt that has the idea and once without, with different names."}),
+            "block": ("INT", {"default": 20, "min": 0, "max": 512, "tooltip": "Transformer block index to read."}),
             "cond_only": ("BOOLEAN", {"default": False,
                                       "tooltip": "Default False preserves the published result. True (recommended for CFG models) averages only cond batch items; current axes were NOT measured with cond_only."}),
         }}
@@ -786,6 +806,8 @@ class HelmCollect:
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
     CATEGORY = "Helm/Lab"
+    DESCRIPTION = "Lab: record what one transformer block does while a prompt renders. Step 1 of the manual route to an axis."
+    SEARCH_ALIASES = ["record", "collect activations", "advanced"]
 
     def run(self, model, tag, block, cond_only=False):
         _axes()
@@ -807,9 +829,9 @@ class HelmVector:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
-            "pos_tag": ("STRING", {"default": "pos"}),
-            "neg_tag": ("STRING", {"default": "neg"}),
-            "axis": ("STRING", {"default": "axis"}),
+            "pos_tag": ("STRING", {"default": "pos", "tooltip": "Name of the recording made WITH the idea."}),
+            "neg_tag": ("STRING", {"default": "neg", "tooltip": "Name of the recording made WITHOUT the idea."}),
+            "axis": ("STRING", {"default": "axis", "tooltip": "Name of the axis file to write."}),
             "safe_max": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.01,
                                    "tooltip": "optional: the highest strength verified safe for this axis. 0 = unset. Stored with the axis and enforced by HelmApply."}),
         }}
@@ -817,6 +839,8 @@ class HelmVector:
     RETURN_NAMES = ("axis",)
     FUNCTION = "run"
     CATEGORY = "Helm/Lab"
+    DESCRIPTION = "Lab: subtract two recordings into one axis file. Step 2 of the manual route to an axis."
+    SEARCH_ALIASES = ["build axis", "make vector", "advanced"]
 
     def run(self, pos_tag, neg_tag, axis, safe_max=0.0):
         p, n = _resolve_axis(pos_tag), _resolve_axis(neg_tag)
@@ -841,8 +865,8 @@ class HelmApply:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
-            "model": ("MODEL",),
-            "axis": ("STRING", {"default": "axis"}),
+            "model": ("MODEL", {"tooltip": "The model to steer."}),
+            "axis": ("STRING", {"default": "axis", "tooltip": "Name of the axis file to apply."}),
             "block": ("INT", {"default": 20, "min": -1, "max": 512,
                               "tooltip": "-1 = adopt the block recorded inside the axis file (the block it was built at); otherwise this explicit index"}),
             "strength": ("FLOAT", {"default": 0.1, "min": -10.0, "max": 10.0, "step": 0.01,
@@ -873,6 +897,8 @@ class HelmApply:
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
     CATEGORY = "Helm/Lab"
+    DESCRIPTION = "Lab: apply an axis with full manual control (strength, block, window, mask). Most people want Helm · Dial instead."
+    SEARCH_ALIASES = ["apply axis", "manual strength", "mask", "advanced"]
 
     def run(self, model, axis, block, strength, dial=0.0, cond_only=False, start_percent=0.0, end_percent=1.0,
             mode="push", mask="", layout="none", grid="", clamp_k=1.0, mask_offset=0):
@@ -947,10 +973,12 @@ class HelmDial:
     def INPUT_TYPES(cls):
         return {"required": {
             "model": ("MODEL", {"tooltip": "The model to steer. Connect it between your model loader and the sampler."}),
-            "axis": (_dial_choices(), {"tooltip": "The idea this dial moves (for example 'Less clutter'). "
-                                       "'Essentials' are ideas Helm's own benchmark shows still look right when moved; "
-                                       "'Custom' are axes you made or dropped in, not benchmarked. The model name in "
-                                       "brackets must match the model you loaded."}),
+            "axis": (_dial_choices(), {"default": _dial_default(_dial_choices()),
+                                       "tooltip": "The idea this dial moves (for example 'Less clutter'). "
+                                       "'Essentials' are ideas Helm's own benchmark shows still look right when moved, "
+                                       "listed by how visible the change is. 'Subtle' ideas hold up too but change "
+                                       "the picture only a little. 'Custom' are axes you made or dropped in, not "
+                                       "benchmarked. The model name in brackets must match the model you loaded."}),
             "amount": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01, "display": "slider",
                                  "tooltip": "How much of the idea. 0 = off (your image is untouched). 1 = the strongest "
                                             "setting that is still safe for this axis. Start in the middle."}),
@@ -961,8 +989,12 @@ class HelmDial:
         }}
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("model",)
+    OUTPUT_TOOLTIPS = ("The same model with one idea dialed in. Connect it to your sampler.",)
     FUNCTION = "run"
     CATEGORY = "Helm"
+    DESCRIPTION = ("Move one idea (light, clutter, motion...) with one slider, without rewriting the prompt. "
+                   "Pick the idea, set Amount (0 = off, 1 = the strongest setting that still looks right), then Run.")
+    SEARCH_ALIASES = ["helm", "dial", "slider", "one idea", "steer", "amount", "axis", "light", "clutter"]
 
     @classmethod
     def VALIDATE_INPUTS(cls, axis):
@@ -988,8 +1020,8 @@ class HelmDial:
         if str(meta.get("safe_max_source") or "").startswith("estimate"):
             print(f"[helm] '{entry['label']}' was made by Make Axis: its safe range is an estimate, not a "
                   f"measurement. Compare Before | After.")
-        print(f"[helm] Dial '{entry['label']}': amount {float(amount):.2f} -> strength {strength:.4f} "
-              f"(safe range 0..{float(safe):g})")
+        print(f"[helm] Dial: {_dial_words(entry['label'], amount)} "
+              f"(strength {strength:.4f} of a safe range 0..{float(safe):g})")
         return HelmApply().run(model, name, int(block), strength)
 
 
@@ -1021,9 +1053,14 @@ class HelmMakeAxis:
         }}
     RETURN_TYPES = ("MODEL", "STRING")
     RETURN_NAMES = ("model", "axis")
+    OUTPUT_TOOLTIPS = ("The model, unchanged. Connect it to a Helm · Dial to use the new axis straight away.",
+                       "The name of the saved axis. Connect it to the 'axis_from' input of a Helm · Dial.")
     FUNCTION = "run"
     CATEGORY = "Helm"
     OUTPUT_NODE = True
+    DESCRIPTION = ("Make your own idea for the Dial: write one prompt that has the idea and one that does not, "
+                   "then Run. The idea is saved and appears in the Dial menu under Custom.")
+    SEARCH_ALIASES = ["helm", "make axis", "new idea", "create axis", "my own axis", "custom idea"]
 
     def run(self, model, clip, latent, with_idea, without_idea, name, steps=4, seed=0, cfg=1.0, block=-1,
             _drive=None):
@@ -1056,7 +1093,7 @@ class HelmProbe:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
-            "model": ("MODEL",),
+            "model": ("MODEL", {"tooltip": "The model to probe. The model passes through unchanged."}),
             "tag": ("STRING", {"default": "probe_pos",
                                "tooltip": "file to write. Run this node TWICE against the same model — once with a `pos` tag, once with a `neg` tag — then feed both to HelmProbeReport."}),
             "cond_only": ("BOOLEAN", {"default": False,
@@ -1066,6 +1103,8 @@ class HelmProbe:
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
     CATEGORY = "Helm/Lab"
+    DESCRIPTION = "Lab: record every block at once, to find where two prompts differ most. Run twice, then use Probe report."
+    SEARCH_ALIASES = ["probe", "find block", "advanced"]
 
     def run(self, model, tag="probe_pos", cond_only=False):
         _axes()
@@ -1089,8 +1128,8 @@ class HelmProbeReport:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
-            "pos_tag": ("STRING", {"default": "probe_pos"}),
-            "neg_tag": ("STRING", {"default": "probe_neg"}),
+            "pos_tag": ("STRING", {"default": "probe_pos", "tooltip": "Name of the probe made WITH the idea."}),
+            "neg_tag": ("STRING", {"default": "probe_neg", "tooltip": "Name of the probe made WITHOUT the idea."}),
             "top": ("INT", {"default": 5, "min": 1, "max": 64,
                             "tooltip": "how many ranked blocks to print"}),
         }}
@@ -1098,6 +1137,8 @@ class HelmProbeReport:
     RETURN_NAMES = ("peak_block",)
     FUNCTION = "run"
     CATEGORY = "Helm/Lab"
+    DESCRIPTION = "Lab: rank the blocks of two probes by how much the prompts differ. A measurement, not a verified pick."
+    SEARCH_ALIASES = ["probe report", "rank blocks", "advanced"]
 
     def run(self, pos_tag="probe_pos", neg_tag="probe_neg", top=5):
         P = _load_tensor(_resolve_axis(pos_tag))

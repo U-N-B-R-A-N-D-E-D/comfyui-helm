@@ -1,53 +1,18 @@
 {
   "version": 1,
-  "note": "Axes that HOLD per the repo's own benchmark. The Dial lists an entry under Essentials only when its axis file is on disk. fallback_safe_max is used when the axis file's header does not record safe_max (it is the highest strength tested and held).",
+  "note": "Axes that HOLD per the repo's own benchmark. The Dial lists an entry only when its axis file is on disk. tier=essential entries are listed first under Essentials, ordered by visible_impact (top-dose saturation shift + peak luminance shift + |edge ratio - 1|, all from study/data/axes.csv); tier=subtle entries come next under Subtle: they hold, but show little visible change in our renders. fallback_safe_max is used when the axis file's header does not record safe_max (it is the highest strength tested and held).",
   "axes": [
     {
-      "file": "z_raking_light_angle",
-      "label": "Light angle (raking)",
+      "file": "z_corridor_orientation",
+      "label": "Corridor orientation",
       "family": "Z-Image",
       "model_class": "NextDiT",
-      "fallback_safe_max": 2.8064,
+      "fallback_safe_max": 9.5532,
       "shipped": true,
-      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 0.673, saturation 0.138; highest strength tested (and held) = 2.8064. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
-      "preview": "previews/z_raking_light_angle.webp"
-    },
-    {
-      "file": "z_volumetric_beams",
-      "label": "Volumetric light beams",
-      "family": "Z-Image",
-      "model_class": "NextDiT",
-      "fallback_safe_max": 2.0101,
-      "shipped": true,
-      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.056, saturation 0.095; highest strength tested (and held) = 2.0101. Pre-registered criterion: docs/EXPERIMENTS.md section F."
-    },
-    {
-      "file": "z_overcast_vs_direct",
-      "label": "Overcast ↔ direct sun",
-      "family": "Z-Image",
-      "model_class": "NextDiT",
-      "fallback_safe_max": 2.3931,
-      "shipped": true,
-      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.372, saturation 0.435; highest strength tested (and held) = 2.3931. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
-      "preview": "previews/z_overcast_vs_direct.webp"
-    },
-    {
-      "file": "z_surface_reflection_intensity",
-      "label": "Surface reflections",
-      "family": "Z-Image",
-      "model_class": "NextDiT",
-      "fallback_safe_max": 3.036,
-      "shipped": true,
-      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.131, saturation 0.136; highest strength tested (and held) = 3.0360. Pre-registered criterion: docs/EXPERIMENTS.md section F."
-    },
-    {
-      "file": "z_motion_blur",
-      "label": "Motion blur",
-      "family": "Z-Image",
-      "model_class": "NextDiT",
-      "fallback_safe_max": 0.4913,
-      "shipped": true,
-      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.024, saturation 0.038; highest strength tested (and held) = 0.4913. Pre-registered criterion: docs/EXPERIMENTS.md section F."
+      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.980, saturation 0.486; highest strength tested (and held) = 9.5532. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
+      "preview": "previews/z_corridor_orientation.webp",
+      "visible_impact": 1.589,
+      "tier": "essential"
     },
     {
       "file": "z_aisle_width",
@@ -57,17 +22,33 @@
       "fallback_safe_max": 4.5327,
       "shipped": true,
       "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.647, saturation 0.490; highest strength tested (and held) = 4.5327. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
-      "preview": "previews/z_aisle_width.webp"
+      "preview": "previews/z_aisle_width.webp",
+      "visible_impact": 1.334,
+      "tier": "essential"
     },
     {
-      "file": "z_corridor_orientation",
-      "label": "Corridor orientation",
+      "file": "z_overcast_vs_direct",
+      "label": "Overcast ↔ direct sun",
       "family": "Z-Image",
       "model_class": "NextDiT",
-      "fallback_safe_max": 9.5532,
+      "fallback_safe_max": 2.3931,
       "shipped": true,
-      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.980, saturation 0.486; highest strength tested (and held) = 9.5532. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
-      "preview": "previews/z_corridor_orientation.webp"
+      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.372, saturation 0.435; highest strength tested (and held) = 2.3931. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
+      "preview": "previews/z_overcast_vs_direct.webp",
+      "visible_impact": 0.966,
+      "tier": "essential"
+    },
+    {
+      "file": "z_raking_light_angle",
+      "label": "Light angle (raking)",
+      "family": "Z-Image",
+      "model_class": "NextDiT",
+      "fallback_safe_max": 2.8064,
+      "shipped": true,
+      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 0.673, saturation 0.138; highest strength tested (and held) = 2.8064. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
+      "preview": "previews/z_raking_light_angle.webp",
+      "visible_impact": 0.661,
+      "tier": "essential"
     },
     {
       "file": "z_room_density",
@@ -76,7 +57,8 @@
       "model_class": "NextDiT",
       "fallback_safe_max": 0.25,
       "shipped": true,
-      "evidence": "docs/EXPERIMENTS.md section E (fair benchmark, seeds 11 and 23): at 0.5 the frame brightens (lum +0.16) and loses detail (edge -21%) with framing intact; safe_max 0.25 is where framing holds, wash is visible at 0.5."
+      "evidence": "docs/EXPERIMENTS.md section E (fair benchmark, seeds 11 and 23): at 0.5 the frame brightens (lum +0.16) and loses detail (edge -21%) with framing intact; safe_max 0.25 is where framing holds, wash is visible at 0.5.",
+      "tier": "essential"
     },
     {
       "file": "density",
@@ -86,7 +68,44 @@
       "fallback_safe_max": 0.3,
       "shipped": true,
       "evidence": "docs/EXPERIMENTS.md section A (dose-response, seed 23 replicates): saturation and edge density fall monotonically up to 0.30; past ~0.45 the frame washes out.",
-      "preview": "previews/density.webp"
+      "preview": "previews/density.webp",
+      "tier": "essential"
+    },
+    {
+      "file": "z_surface_reflection_intensity",
+      "label": "Surface reflections",
+      "family": "Z-Image",
+      "model_class": "NextDiT",
+      "fallback_safe_max": 3.036,
+      "shipped": true,
+      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.131, saturation 0.136; highest strength tested (and held) = 3.0360. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
+      "visible_impact": 0.348,
+      "tier": "subtle",
+      "tier_note": "Holds in the benchmark, but the change is hard to see in our renders: kept under Subtle instead of Essentials."
+    },
+    {
+      "file": "z_volumetric_beams",
+      "label": "Volumetric light beams",
+      "family": "Z-Image",
+      "model_class": "NextDiT",
+      "fallback_safe_max": 2.0101,
+      "shipped": true,
+      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.056, saturation 0.095; highest strength tested (and held) = 2.0101. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
+      "visible_impact": 0.204,
+      "tier": "subtle",
+      "tier_note": "Holds in the benchmark, but the change is hard to see in our renders: kept under Subtle instead of Essentials."
+    },
+    {
+      "file": "z_motion_blur",
+      "label": "Motion blur",
+      "family": "Z-Image",
+      "model_class": "NextDiT",
+      "fallback_safe_max": 0.4913,
+      "shipped": true,
+      "evidence": "study/data/axes.csv: strict_push=holds, monotone=yes, edge ratio at top dose 1.024, saturation 0.038; highest strength tested (and held) = 0.4913. Pre-registered criterion: docs/EXPERIMENTS.md section F.",
+      "visible_impact": 0.108,
+      "tier": "subtle",
+      "tier_note": "Holds in the benchmark, but the change is hard to see in our renders: kept under Subtle instead of Essentials."
     }
   ]
 }

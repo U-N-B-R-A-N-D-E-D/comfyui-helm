@@ -1,5 +1,9 @@
 """Regenerates the three starter templates in example_workflows/ (flat graphs, no subgraphs).
 
+ComfyUI's template browser lists custom-node templates by FILE NAME (there is no index for them) and looks for
+a thumbnail next to the workflow with the same name and a .jpg extension, so the file names below are the
+titles people read. See docs/UX-NOTES.md.
+
     python tools/build_templates.py
 
 The templates are plain ComfyUI "UI format" JSON. They are generated so that the three graphs stay
@@ -32,7 +36,7 @@ S = {
     "PreviewImage": ([("images", "IMAGE", 0)], []),
     "SaveImage": ([("images", "IMAGE", 0), ("filename_prefix", "STRING", 1)], []),
     "PrimitiveInt": ([("value", "INT", 1)], [("INT", "INT")]),
-    "Note": ([], []),
+    "MarkdownNote": ([], []),
     "LoraLoaderModelOnly": ([("model", "MODEL", 0), ("lora_name", "COMBO", 1), ("strength_model", "FLOAT", 1)],
                             [("MODEL", "MODEL")]),
     "MiniMaxH3ImageToVideo": ([("clip", "CLIP", 0), ("vae", "VAE", 0), ("first_frame", "IMAGE", 0, 1),
@@ -63,7 +67,7 @@ S = {
 # colors (title, body)
 GREEN = ("#232", "#353")      # things you edit
 ORANGE = ("#6b3300", "#a85200")   # the Helm control
-NOTE = ("#432", "#653")
+NOTE = ("#222", "#000")       # same as the official ComfyUI templates' MarkdownNote
 GROUP_BLUE = "#3f789e"
 GROUP_ORANGE = "#b06634"
 GROUP_GREEN = "#3f8e5e"
@@ -82,7 +86,7 @@ class Graph:
         self.nid = self.lid = self.gid = 0
         self.by_id = {}
 
-    def add(self, typ, pos, size, widgets=None, title=None, colors=None, models=None, text=None):
+    def add(self, typ, pos, size, widgets=None, title=None, colors=None, models=None, text=None, collapsed=False):
         self.nid += 1
         ins, outs = S[typ]
         node = {
@@ -90,7 +94,7 @@ class Graph:
             "mode": 0,
             "inputs": [],
             "outputs": [{"name": n, "type": t, "links": []} for n, t in outs],
-            "properties": {"Node name for S&R": typ},
+            "properties": {} if typ == "MarkdownNote" else {"Node name for S&R": typ},
             "widgets_values": widgets if widgets is not None else [],
         }
         for spec in ins:
@@ -106,8 +110,10 @@ class Graph:
         if models:
             node["properties"]["models"] = [{"name": n, "url": u, "directory": d} for n, u, d in models]
         if text is not None:
-            node["properties"]["text"] = text
+            node["properties"] = {}  # as in the official templates
             node["widgets_values"] = [text]
+        if collapsed:
+            node["flags"] = {"collapsed": True}
         if title:
             node["title"] = title
         if colors:
@@ -128,188 +134,221 @@ class Graph:
         self.links.append([self.lid, a, oi, b, ii, src["outputs"][oi]["type"]])
 
     def group(self, title, x, y, w, h, color=GROUP_BLUE):
+        """Big titles: at the zoom a template opens at, 24 px titles are too small to read."""
         self.gid += 1
         self.groups.append({"id": self.gid, "title": title, "bounding": [x, y, w, h], "color": color,
-                            "font_size": 24, "flags": {}})
+                            "font_size": 40, "flags": {}})
 
-    def dump(self, path):
+    def dump(self, path, scale=0.7, offset=(100, 130)):  # ds is ignored for templates (the frontend fits them)
         doc = {"id": str(uuid.uuid5(uuid.NAMESPACE_URL, os.path.basename(path))), "revision": 0,
                "last_node_id": self.nid, "last_link_id": self.lid, "nodes": self.nodes, "links": self.links,
-               "groups": self.groups, "config": {}, "extra": {"ds": {"scale": 0.5, "offset": [60, 40]}},
+               "groups": self.groups, "config": {}, "extra": {"ds": {"scale": scale, "offset": list(offset)}},
                "version": 0.4}
         with open(path, "w", encoding="utf-8") as f:
             json.dump(doc, f, indent=2, ensure_ascii=False)
             f.write("\n")
 
 
+PILL = (300, 40)   # footprint of a collapsed node (the JSON keeps the expanded size)
+
+
 def z_models(g, x, y):
+    """The loaders, collapsed to one-line pills: they are 'leave as they are', so they take no attention."""
     u = g.add("UNETLoader", (x, y), (320, 100), [Z_MODELS["UNETLoader"][0], "default"], "Z-Image model",
-              models=[Z_MODELS["UNETLoader"]])
-    c = g.add("CLIPLoader", (x, y + 130), (320, 130), [Z_MODELS["CLIPLoader"][0], "lumina2", "default"],
-              "Text encoder", models=[Z_MODELS["CLIPLoader"]])
-    v = g.add("VAELoader", (x, y + 290), (320, 90), [Z_MODELS["VAELoader"][0]], "Image decoder (VAE)",
-              models=[Z_MODELS["VAELoader"]])
-    s = g.add("ModelSamplingAuraFlow", (x + 360, y), (300, 100), [3], "Sampling shift (leave as is)")
+              models=[Z_MODELS["UNETLoader"]], collapsed=True)
+    c = g.add("CLIPLoader", (x, y + 50), (320, 130), [Z_MODELS["CLIPLoader"][0], "lumina2", "default"],
+              "Text encoder", models=[Z_MODELS["CLIPLoader"]], collapsed=True)
+    v = g.add("VAELoader", (x, y + 100), (320, 90), [Z_MODELS["VAELoader"][0]], "Image decoder (VAE)",
+              models=[Z_MODELS["VAELoader"]], collapsed=True)
+    s = g.add("ModelSamplingAuraFlow", (x, y + 150), (300, 100), [3], "Sampling shift", collapsed=True)
     g.link(u, "MODEL", s, "model")
     return u, c, v, s
 
 
 def before_after_z(g, x, y, model_before, model_after, pos, neg, latent, vae, seed):
-    """Two KSamplers with the same seed. Before = model straight from the loader chain (Dial off)."""
-    kb = g.add("KSampler", (x, y), (320, 360), [0, "fixed", 8, 1, "res_multistep", "simple", 1],
-               "Before (Dial off = Amount 0)")
-    ka = g.add("KSampler", (x, y + 420), (320, 360), [0, "fixed", 8, 1, "res_multistep", "simple", 1],
-               "After (your Amount)")
+    """Two KSamplers with the same seed. Before = model straight from the loader chain (Dial off).
+
+    (x, y) is the group origin. The picture comes first; the plumbing is collapsed into pills under it."""
+    pv = g.add("PreviewImage", (x + 20, y + 80), (660, 420), None, "Left: Before    Right: After")
+    row = y + 540
+    kb = g.add("KSampler", (x + 20, row), (300, 340), [0, "fixed", 8, 1, "res_multistep", "simple", 1],
+               "Before (Dial off)", collapsed=True)
+    db = g.add("VAEDecode", (x + 340, row), (180, 60), None, "Decode Before", collapsed=True)
+    ka = g.add("KSampler", (x + 20, row + 50), (300, 340), [0, "fixed", 8, 1, "res_multistep", "simple", 1],
+               "After (your Amount)", collapsed=True)
+    da = g.add("VAEDecode", (x + 340, row + 50), (180, 60), None, "Decode After", collapsed=True)
+    st = g.add("ImageStitch", (x + 20, row + 100), (300, 190), ["right", True, 0, "white"], "Before | After", collapsed=True)
+    sv = g.add("SaveImage", (x + 340, row + 100), (270, 200), ["helm/after"], "Save After image", collapsed=True)
     for k, m in ((kb, model_before), (ka, model_after)):
         g.link(m, "MODEL", k, "model")
         g.link(pos, "CONDITIONING", k, "positive")
         g.link(neg, "CONDITIONING", k, "negative")
         g.link(latent, "LATENT", k, "latent_image")
         g.link(seed, "INT", k, "seed")
-    db = g.add("VAEDecode", (x + 360, y), (200, 60), None, "Decode Before")
-    da = g.add("VAEDecode", (x + 360, y + 420), (200, 60), None, "Decode After")
     g.link(kb, "LATENT", db, "samples"); g.link(vae, "VAE", db, "vae")
     g.link(ka, "LATENT", da, "samples"); g.link(vae, "VAE", da, "vae")
-    st = g.add("ImageStitch", (x + 600, y), (300, 190), ["right", True, 0, "white"], "Before | After (side by side)")
     g.link(db, "IMAGE", st, "image1"); g.link(da, "IMAGE", st, "image2")
-    pv = g.add("PreviewImage", (x + 600, y + 240), (640, 560), None, "Left: Before    Right: After")
     g.link(st, "IMAGE", pv, "images")
-    sv = g.add("SaveImage", (x + 940, y), (300, 200), ["helm/after"], "Save the After image")
     g.link(da, "IMAGE", sv, "images")
     return kb, ka
 
 
-NOTE_STEPS = "1) write your prompt\n2) move Amount\n3) Run"
+T1 = "Helm 1. Start here (Z-Image).json"
+T2 = "Helm 2. Video (MiniMax H3).json"
+T3 = "Helm 3. Make your own axis.json"
+
+DIAL_NOTE = (
+    "## What the Dial does\n\n"
+    "- **Amount 0**: Helm is off\n"
+    "- **Amount 1**: the strongest setting that still looks right for this idea\n"
+    "- **Before** = your prompt, Dial off. **After** = same prompt and seed, your Amount\n\n"
+    "Only the picture changes along one idea. Your prompt is not rewritten.")
+
+
+def steps_note(g, title, pos, size, first, second="Move **Amount** on the orange Dial", third="**Run**, then compare Before | After"):
+    return g.add("MarkdownNote", pos, size, title=title, colors=NOTE, text=(
+        "# Start here\n\n"
+        f"## 1. {first}\n\n"
+        f"## 2. {second}\n\n"
+        f"## 3. {third}"))
+
+
+def models_note(g, pos, links, size=(300, 120)):
+    return g.add("MarkdownNote", pos, size, title="Note: Models", colors=NOTE, text=(
+        "## Models\n\nLeave these as they are. If one is missing, ComfyUI offers to download it.\n\n" + links))
+
+
+def dial_group(g, x, y, axis, extra_note="", w=540, note_h=150):
+    """Group 'Move the Dial' with the Dial node and the 'What the Dial does' note. Returns the Dial id."""
+    g.group("2 · Move the Dial" if g.dial_step == 2 else f"{g.dial_step} · Move the Dial", x, y, w, 80 + 160 + 30 + note_h + 20, GROUP_ORANGE)
+    d = g.add("HelmDial", (x + 20, y + 80), (w - 40, 160), [axis, 0.5], "Helm · Dial", ORANGE)
+    g.add("MarkdownNote", (x + 20, y + 270), (w - 40, note_h), colors=NOTE, title="Note: What the Dial does",
+          text=DIAL_NOTE + extra_note)
+    return d
 
 
 def template_1():
     g = Graph()
-    # 1 prompt
-    g.group("1 · Write your prompt", 0, 0, 600, 600, GROUP_GREEN)
-    pr = g.add("CLIPTextEncode", (20, 60), (560, 240),
+    g.dial_step = 2
+    steps_note(g, "Note: Start here", (0, 0), (500, 150), "Write your prompt in the green box")
+    g.group("1 · Write your prompt", 0, 190, 500, 520, GROUP_GREEN)
+    pr = g.add("CLIPTextEncode", (20, 270), (460, 200),
                ["an industrial hall with tall windows and a single person standing in the middle, documentary photography"],
                "Your prompt (edit me)", GREEN)
-    size = g.add("EmptySD3LatentImage", (20, 340), (300, 150), [1024, 1024, 1], "Image size")
-    seed = g.add("PrimitiveInt", (340, 340), (240, 100), [11, "fixed"], "Seed (same for Before and After)")
-    # 2 models
-    g.group("2 · Models (leave as they are)", 0, 660, 720, 460, GROUP_GREY)
-    u, c, v, s = z_models(g, 20, 720)
-    zero = g.add("ConditioningZeroOut", (380, 860), (300, 70), None, "Empty negative prompt")
+    size = g.add("EmptySD3LatentImage", (20, 500), (220, 150), [1024, 1024, 1], "Image size")
+    seed = g.add("PrimitiveInt", (260, 500), (220, 110), [11, "fixed"], "Seed (shared by both)")
+    d = dial_group(g, 560, 0, "Essentials · Light angle (raking) (Z-Image)")
+    g.group("Models (leave as they are)", 560, 580, 640, 360, GROUP_GREY)
+    u, c, v, s = z_models(g, 580, 660)
+    zero = g.add("ConditioningZeroOut", (580, 860), (300, 70), None, "Empty negative", collapsed=True)
+    models_note(g, (900, 660), "- [Z-Image Turbo files on Hugging Face](https://huggingface.co/Comfy-Org/z_image_turbo)")
     g.link(c, "CLIP", pr, "clip")
     g.link(pr, "CONDITIONING", zero, "conditioning")
-    # 3 dial
-    g.group("3 · The Dial: move Amount", 780, 0, 560, 640, GROUP_ORANGE)
-    n1 = g.add("Note", (800, 60), (520, 170), text=NOTE_STEPS, title="Helm 1 · Start here (Z-Image)", colors=NOTE)
-    d = g.add("HelmDial", (800, 270), (520, 170), ["Essentials · Light angle (raking) (Z-Image)", 0.5],
-              "Helm · Dial", ORANGE)
-    n2 = g.add("Note", (800, 470), (520, 140), colors=NOTE, title="What the Dial does", text=(
-        "Amount 0 = Helm off. Amount 1 = the strongest setting that still looks right for this idea.\n"
-        "Before = your prompt with the Dial off. After = the same prompt and seed with your Amount.\n"
-        "Only the picture changes along one idea; your prompt is not rewritten."))
     g.link(s, "MODEL", d, "model")
-    # 4 result
-    g.group("4 · Result: Before | After", 1400, 0, 1280, 900, GROUP_BLUE)
-    before_after_z(g, 1420, 60, s, d, pr, zero, size, v, seed)
+    g.group("3 · Result: Before | After", 1260, 0, 700, 760, GROUP_BLUE)
+    before_after_z(g, 1260, 0, s, d, pr, zero, size, v, seed)
     return g
 
 
 def template_2():
     g = Graph()
-    g.group("1 · Describe your video", 0, 0, 640, 660, GROUP_GREEN)
-    h3 = g.add("MiniMaxH3ImageToVideo", (20, 60), (600, 420),
+    g.dial_step = 2
+    steps_note(g, "Note: Start here", (0, 0), (520, 150), "Describe your video in the green box")
+    g.group("1 · Describe your video", 0, 190, 520, 560, GROUP_GREEN)
+    h3 = g.add("MiniMaxH3ImageToVideo", (20, 270), (480, 400),
                [("Slow dolly shot through a packed industrial hall full of machinery, crates and cables, "
                  "documentary look, low ambient hum."), 768, 448, 73],
                "Your prompt (edit me)", GREEN)
-    noise = g.add("RandomNoise", (20, 520), (300, 100), [11, "fixed"], "Seed (same for Before and After)")
-    g.group("2 · Models (leave as they are)", 0, 720, 780, 560, GROUP_GREY)
-    u = g.add("UNETLoader", (20, 780), (340, 100), ["minimax_h3_fl2va_pruned_int8_convrot.safetensors", "default"],
-              "MiniMax H3 model")
-    lo = g.add("LoraLoaderModelOnly", (20, 910), (340, 110),
-               ["minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors", 1], "Fast mode (turbo, 6 steps)")
-    cl = g.add("CLIPLoader", (400, 780), (340, 130), ["qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "minimax", "default"],
-               "Text encoder")
-    vv = g.add("VAELoader", (400, 940), (340, 90), ["minimax_h3_video_vae_fp16.safetensors"], "Video decoder (VAE)")
-    va = g.add("VAELoader", (400, 1060), (340, 90), ["minimax_h3_audio_vae_fp32.safetensors"], "Audio decoder (VAE)")
-    ks = g.add("KSamplerSelect", (20, 1060), (340, 70), ["res_multistep"], "Sampler")
-    sch = g.add("BasicScheduler", (20, 1160), (340, 110), ["simple", 6, 1], "Steps (fast mode = 6)")
+    noise = g.add("RandomNoise", (20, 690), (300, 100), [11, "fixed"], "Seed (shared by both)", collapsed=True)
+    d = dial_group(g, 580, 0, "Essentials · Less clutter (MiniMax H3)", w=540, note_h=170,
+                   extra_note="\n\nThe video renders twice (Before and After), so it takes about twice as long.")
+    g.group("Models (leave as they are)", 580, 620, 640, 480, GROUP_GREY)
+    u = g.add("UNETLoader", (600, 700), (340, 100), ["minimax_h3_fl2va_pruned_int8_convrot.safetensors", "default"],
+              "MiniMax H3 model", collapsed=True)
+    lo = g.add("LoraLoaderModelOnly", (600, 750), (340, 110),
+               ["minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors", 1], "Fast mode (turbo, 6 steps)", collapsed=True)
+    cl = g.add("CLIPLoader", (600, 800), (340, 130), ["qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "minimax", "default"],
+               "Text encoder", collapsed=True)
+    vv = g.add("VAELoader", (920, 700), (340, 90), ["minimax_h3_video_vae_fp16.safetensors"], "Video decoder (VAE)", collapsed=True)
+    va = g.add("VAELoader", (920, 750), (340, 90), ["minimax_h3_audio_vae_fp32.safetensors"], "Audio decoder (VAE)", collapsed=True)
+    ks = g.add("KSamplerSelect", (920, 800), (340, 70), ["res_multistep"], "Sampler", collapsed=True)
+    sch = g.add("BasicScheduler", (600, 850), (340, 110), ["simple", 6, 1], "Steps (fast mode = 6)", collapsed=True)
+    models_note(g, (600, 920), "- [MiniMax H3 files on Hugging Face](https://huggingface.co/Comfy-Org/MiniMax-H3)", (600, 110))
     g.link(u, "MODEL", lo, "model")
     g.link(cl, "CLIP", h3, "clip"); g.link(vv, "VAE", h3, "vae")
     g.link(lo, "MODEL", sch, "model")
-    g.group("3 · The Dial: move Amount", 840, 0, 560, 660, GROUP_ORANGE)
-    g.add("Note", (860, 60), (520, 170), text=NOTE_STEPS, title="Helm 2 · Video (MiniMax H3)", colors=NOTE)
-    d = g.add("HelmDial", (860, 270), (520, 170), ["Essentials · Less clutter (MiniMax H3)", 0.5],
-              "Helm · Dial", ORANGE)
-    g.add("Note", (860, 470), (520, 160), colors=NOTE, title="What the Dial does", text=(
-        "Amount 0 = Helm off. Amount 1 = the strongest setting that still looks right for this idea.\n"
-        "This renders the video twice with the same seed, so it takes about twice as long: Before (Dial off) and After (your Amount)."))
     g.link(lo, "MODEL", d, "model")
-    g.group("4 · Result: Before | After", 1460, 0, 1500, 1280, GROUP_BLUE)
-    gb = g.add("BasicGuider", (1480, 60), (240, 70), None, "Before (Dial off)")
-    ga = g.add("BasicGuider", (1480, 520), (240, 70), None, "After (your Amount)")
+    g.group("3 · Result: Before | After", 1280, 0, 700, 1000, GROUP_BLUE)
+    sv = g.add("SaveVideo", (1300, 80), (660, 440), ["video/helm-before-after", "auto", "auto"],
+               "Left: Before    Right: After")
+    row = 560
+    gb = g.add("BasicGuider", (1300, row), (240, 70), None, "Before (Dial off)", collapsed=True)
+    sb = g.add("SamplerCustomAdvanced", (1620, row), (240, 150), None, "Render Before", collapsed=True)
+    db = g.add("VAEDecode", (1300, row + 50), (180, 60), None, "Decode Before", collapsed=True)
+    ga = g.add("BasicGuider", (1620, row + 50), (240, 70), None, "After (your Amount)", collapsed=True)
+    sa = g.add("SamplerCustomAdvanced", (1300, row + 100), (240, 150), None, "Render After", collapsed=True)
+    da = g.add("VAEDecode", (1620, row + 100), (180, 60), None, "Decode After", collapsed=True)
+    au = g.add("VAEDecodeAudio", (1300, row + 150), (180, 60), None, "Decode sound (After)", collapsed=True)
+    st = g.add("ImageStitch", (1620, row + 150), (300, 190), ["right", True, 0, "white"], "Before | After", collapsed=True)
+    cv = g.add("CreateVideo", (1300, row + 200), (300, 150), [24, "auto", "sRGB", "none"], "Make the video", collapsed=True)
     g.link(lo, "MODEL", gb, "model"); g.link(h3, "positive", gb, "conditioning")
     g.link(d, "model", ga, "model"); g.link(h3, "positive", ga, "conditioning")
-    sb = g.add("SamplerCustomAdvanced", (1760, 60), (260, 150), None, "Render Before")
-    sa = g.add("SamplerCustomAdvanced", (1760, 520), (260, 150), None, "Render After")
     for s_, gd in ((sb, gb), (sa, ga)):
         g.link(noise, "NOISE", s_, "noise"); g.link(gd, "GUIDER", s_, "guider")
         g.link(ks, "SAMPLER", s_, "sampler"); g.link(sch, "SIGMAS", s_, "sigmas")
         g.link(h3, "LATENT", s_, "latent_image")
-    db = g.add("VAEDecode", (2060, 60), (200, 60), None, "Decode Before")
-    da = g.add("VAEDecode", (2060, 520), (200, 60), None, "Decode After")
-    au = g.add("VAEDecodeAudio", (2060, 640), (200, 60), None, "Decode sound (After)")
     g.link(sb, "output", db, "samples"); g.link(vv, "VAE", db, "vae")
     g.link(sa, "output", da, "samples"); g.link(vv, "VAE", da, "vae")
     g.link(sa, "output", au, "samples"); g.link(va, "VAE", au, "vae")
-    st = g.add("ImageStitch", (2300, 60), (300, 190), ["right", True, 0, "white"], "Before | After (side by side)")
     g.link(db, "IMAGE", st, "image1"); g.link(da, "IMAGE", st, "image2")
-    cv = g.add("CreateVideo", (2300, 300), (300, 150), [24, "auto", "sRGB", "none"], "Make the video")
     g.link(st, "IMAGE", cv, "images"); g.link(au, "AUDIO", cv, "audio")
-    sv = g.add("SaveVideo", (2300, 500), (400, 160), ["video/helm-before-after", "auto", "auto"],
-               "Left: Before    Right: After")
     g.link(cv, "VIDEO", sv, "video")
     return g
 
 
 def template_3():
     g = Graph()
-    g.group("1 · Your prompt", 0, 0, 600, 480, GROUP_GREEN)
-    pr = g.add("CLIPTextEncode", (20, 60), (560, 200), ["a quiet street at dawn, documentary photography"],
-               "Your prompt (edit me)", GREEN)
-    size = g.add("EmptySD3LatentImage", (20, 300), (300, 150), [1024, 1024, 1], "Final image size")
-    seed = g.add("PrimitiveInt", (340, 300), (240, 100), [11, "fixed"], "Seed (same for Before and After)")
-    g.group("2 · Models (leave as they are)", 0, 540, 720, 460, GROUP_GREY)
-    u, c, v, s = z_models(g, 20, 600)
-    zero = g.add("ConditioningZeroOut", (380, 740), (300, 70), None, "Empty negative prompt")
-    g.link(c, "CLIP", pr, "clip"); g.link(pr, "CONDITIONING", zero, "conditioning")
-    g.group("3 · Describe the idea", 780, 0, 640, 1000, GROUP_GREEN)
-    g.add("Note", (800, 60), (600, 150), text=(
-        "1) type the idea twice: with it, and without it (change only the idea)\n"
-        "2) Run: Make Axis saves your axis and the Dial uses it straight away\n"
-        "3) move Amount, Run again, compare Before | After"),
-        title="Helm 3 · Make your own axis", colors=NOTE)
-    tiny = g.add("EmptySD3LatentImage", (800, 250), (300, 150), [512, 512, 1], "Test size (small is fine)")
-    ma = g.add("HelmMakeAxis", (800, 440), (600, 520),
+    g.dial_step = 3
+    steps_note(g, "Note: Start here", (0, 0), (560, 170), "Describe the idea twice in the green box: with it, without it",
+               "**Run**: your idea is saved and the Dial can move it",
+               "Move **Amount**, **Run** again, compare")
+    g.group("1 · Describe the idea", 0, 210, 560, 760, GROUP_GREEN)
+    tiny = g.add("EmptySD3LatentImage", (20, 290), (250, 130), [512, 512, 1], "Test size (small is fine)")
+    ma = g.add("HelmMakeAxis", (20, 450), (520, 490),
                ["a quiet street at dawn, thick fog, documentary photography",
                 "a quiet street at dawn, clear air, documentary photography",
                 "my_fog", 4, 0, "fixed", 1.0, -1],
                "Helm · Make Axis", ORANGE)
+    g.group("2 · Your prompt", 620, 0, 560, 400, GROUP_GREEN)
+    pr = g.add("CLIPTextEncode", (640, 80), (520, 160), ["a quiet street at dawn, documentary photography"],
+               "Your prompt (edit me)", GREEN)
+    size = g.add("EmptySD3LatentImage", (640, 270), (250, 110), [1024, 1024, 1], "Final image size")
+    seed = g.add("PrimitiveInt", (910, 270), (250, 110), [11, "fixed"], "Seed (shared by both)")
+    g.group("3 · Move the Dial", 620, 440, 560, 560, GROUP_ORANGE)
+    d = g.add("HelmDial", (640, 520), (520, 160), ["Custom · my_fog", 0.5], "Helm · Dial", ORANGE)
+    g.add("MarkdownNote", (640, 710), (520, 230), colors=NOTE, title="Note: About your axis", text=(
+        "## About your axis\n\n"
+        "- Saved as **my_fog** in your ComfyUI user/steer folder. Next time it is also in the Dial menu under Custom.\n"
+        "- Its safe range is an **estimate**, not a measurement. Trust the Before | After picture.\n"
+        "- Nothing changes? Make the two prompts differ more.\n"
+        "- Picture falls apart? Lower Amount.\n"
+        "- Works with image models that take plain text prompts (Z-Image shown)."))
+    g.group("4 · Result: Before | After", 1240, 0, 700, 760, GROUP_BLUE)
+    g.group("Models (leave as they are)", 1240, 800, 640, 360, GROUP_GREY)
+    u, c, v, s = z_models(g, 1260, 880)
+    zero = g.add("ConditioningZeroOut", (1260, 1080), (300, 70), None, "Empty negative", collapsed=True)
+    models_note(g, (1580, 880), "- [Z-Image Turbo files on Hugging Face](https://huggingface.co/Comfy-Org/z_image_turbo)")
+    g.link(c, "CLIP", pr, "clip"); g.link(pr, "CONDITIONING", zero, "conditioning")
     g.link(s, "MODEL", ma, "model"); g.link(c, "CLIP", ma, "clip"); g.link(tiny, "LATENT", ma, "latent")
-    g.group("4 · The Dial", 1480, 0, 560, 640, GROUP_ORANGE)
-    d = g.add("HelmDial", (1500, 60), (520, 170), ["Custom · my_fog", 0.5], "Helm · Dial", ORANGE)
-    g.add("Note", (1500, 270), (520, 330), colors=NOTE, title="About your axis", text=(
-        "The axis is saved as my_fog in your ComfyUI user/steer folder. Next time it also appears in the Dial menu under Custom.\n"
-        "Its safe range is an ESTIMATE, not a measurement: the Essentials in the other templates were checked against a benchmark, yours was not. "
-        "Trust the Before | After picture.\n"
-        "If nothing changes, make the two prompts differ more. If the picture falls apart, lower Amount.\n"
-        "Works with image models that take plain text prompts (Z-Image shown)."))
     g.link(ma, "model", d, "model"); g.link(ma, "axis", d, "axis_from")
-    g.group("5 · Result: Before | After", 2100, 0, 1280, 900, GROUP_BLUE)
-    before_after_z(g, 2120, 60, s, d, pr, zero, size, v, seed)
+    before_after_z(g, 1240, 0, s, d, pr, zero, size, v, seed)
     return g
 
 
 if __name__ == "__main__":
-    template_1().dump(os.path.join(OUT, "helm_1_start_here.json"))
-    template_2().dump(os.path.join(OUT, "helm_2_video_h3.json"))
-    template_3().dump(os.path.join(OUT, "helm_3_make_your_own_axis.json"))
+    # ComfyUI always fits a template to the window when it opens, and below about 60% zoom it draws nodes as
+    # empty boxes. So each graph is kept compact (about 2000 x 1000 units) and the plumbing is collapsed.
+    template_1().dump(os.path.join(OUT, T1))
+    template_2().dump(os.path.join(OUT, T2))
+    template_3().dump(os.path.join(OUT, T3))
     print("wrote 3 templates to", OUT)

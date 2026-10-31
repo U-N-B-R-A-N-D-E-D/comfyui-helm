@@ -730,6 +730,10 @@ class HelmApply:
 
         mp = model.clone()
         entry = _calib_for(mp)
+        if entry and entry.get("dim") and int(entry["dim"]) != int(vec.shape[-1]):
+            raise ValueError(
+                f"axis '{axis}' dim {int(vec.shape[-1])} != calibrated model dim {int(entry['dim'])} "
+                f"for {_model_name(mp)}; rebuild the axis on this model or pick a compatible one.")
         fn = _make_apply_hook(vec, strength, axis, cond_only, meta_path,
                               mode=mode, token_mask=token_mask, clamp_k=clamp_k, debug=True,
                               mask_offset=int(mask_offset))

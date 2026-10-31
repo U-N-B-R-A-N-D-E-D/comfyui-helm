@@ -10,7 +10,7 @@ dependencies = ["safetensors", "numpy"]
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pillow"]
 
 [project.urls]
 Repository = "https://github.com/U-N-B-R-A-N-D-E-D/comfyui-helm"

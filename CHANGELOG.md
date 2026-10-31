@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.0-dev (unreleased)
+
+The core of the Helm 0.5 node family. Nothing here has been measured on a GPU yet; see `docs/SPEC-0.5.md`.
+
+- **New custom type `HELM`** (`helm_core.py`): a small, immutable, strictly validated object (axis vectors, metadata,
+  amount, curve, stage, weights) with a JSON round trip. No pickle.
+- **New `Helm · Axis`** (`HelmAxis`): pick an idea from the library, or build one from several with/without prompt
+  pairs. The per-pair differences are averaged so subject-specific detail cancels, then (optionally) the shared
+  "look and colour" component is projected out using built-in nuisance pairs (other wording, other subject, other
+  look). Optional `HELM` input chains ideas (Axis -> Axis -> Axis).
+- **New `Helm · Shape`** (`HelmShape`, experimental): signed amount -1..+1 mapped to -safe_max..+safe_max, a time
+  curve for video (constant, ramp with easing, or keyframes; MiniMax H3 only), and a render stage (early or late
+  steps) gated on the sampler's sigma.
+- **New `Helm · Mix`** (`HelmMix`, experimental): several `HELM` inputs with per-input and per-axis weights;
+  Gram-Schmidt in the shared model/block space; warns about mismatched models or blocks.
+- **New `Helm · Apply`** (`HelmApplyNode`): `MODEL` + `HELM` to `MODEL`, the only 0.5 node that patches the model.
+  It reuses the existing hook through a shared `_add_axis_hook`; the wrapper now also hands hooks that ask for it
+  the sampling progress and the packed latent shapes.
+- **Lab nodes hidden from search** with ComfyUI's `DEPRECATED` flag (category stays `Helm/Lab`; classes and inputs
+  unchanged, so old workflows load and run).
+- `Helm · Dial` is unchanged and remains the one-node shortcut.
+
 ## 0.4.0 (unreleased)
 
 The nodes and templates now deliver the product promise: one slider moves one idea, no prompt rewrite.

@@ -6,13 +6,20 @@ Read a transformer block's mean activation for two contrastive prompts (diff-in-
 `models/steer/` -> this pack's `example_axes/`; writes always go to `user/steer/`. Axes written by
 older versions as `.pt` are still read; `HelmApply` `block=-1` adopts the block recorded in the axis.
 
+Helm 0.5 family (category `Helm`), chained through the custom type `HELM` (see helm_core.py, docs/SPEC-0.5.md)
+  HelmAxis       -> HELM         WHAT idea: library pick, or several with/without pairs (averaged, debiased)
+  HelmShape      HELM -> HELM    HOW MUCH (signed) and WHEN (video time curve, early/late stage)
+  HelmMix        HELM.. -> HELM  COMBINE with weights; Gram-Schmidt so ideas stay independent
+  HelmApplyNode  MODEL+HELM -> MODEL   WHERE: the only 0.5 node that patches the model
+
 Everyday nodes (category `Helm`)
   HelmDial      MODEL -> MODEL   pick an idea by name, move Amount 0-1. No strength, norm or block to know:
                                  amount maps to 0..safe_max recorded inside the axis file.
   HelmMakeAxis  MODEL+CLIP -> MODEL, STRING   write "with the idea" / "without the idea", press Run:
                                  records both contrast passes in one execution, saves the axis file.
 
-Lab nodes (category `Helm/Lab`, class names unchanged so old workflows still load)
+Lab nodes (category `Helm/Lab`, flagged DEPRECATED so search hides them by default; class names unchanged
+so old workflows still load)
   HelmCollect  MODEL -> MODEL   mean activation at block K for a tag (run once per prompt)
   HelmVector   tags  -> STRING  axis = mean_pos - mean_neg -> reusable axis file
   HelmApply    MODEL -> MODEL   inject x + strength*axis at block K (chain several for multiple axes)
@@ -36,6 +43,11 @@ import torch
 import folder_paths
 from safetensors import safe_open as _st_open
 from safetensors.torch import save_file as _st_save
+
+try:  # inside ComfyUI the pack is a package; in the headless tests the pack folder is on sys.path
+    from . import helm_core as H
+except ImportError:  # pragma: no cover - exercised by the test suite
+    import helm_core as H
 
 # --- paths / calibration -------------------------------------------------------------------
 _PACK_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -410,13 +422,15 @@ def _apply_token_mask(d, x, tm, offset=0):
 
 
 def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path,
-                     mode="push", token_mask=None, clamp_k=1.0, debug=False, mask_offset=0):
+                     mode="push", token_mask=None, clamp_k=1.0, debug=False, mask_offset=0, shaper=None):
+    """`shaper(x, ctx)` (optional, used by Helm · Apply) returns a float or a per-token tensor that multiplies
+    the injected delta, so a signed amount and a time curve ride on the same hook."""
     unit = None
     if mode == "clamp":
         v = vec / (vec.norm() + 1e-8)
         unit = v
     logged = {"once": False}
-    def fn(m, args, out, flags=None):
+    def fn(m, args, out, flags=None, ctx=None):
         slot = _tuple_slot(m, out)
         x = out[slot] if slot is not None else out
         if x.shape[-1] != vec.shape[-1]:
@@ -429,6 +443,13 @@ def _make_apply_hook(vec, strength, axis_name, cond_only, meta_path,
                   f"dim={int(x.shape[-1])} mode={mode} mask_offset={mask_offset}")
             logged["once"] = True
         d = vec.to(x.dtype).to(x.device) * strength
+        if shaper is not None:
+            w = shaper(x, ctx)
+            if torch.is_tensor(w):
+                w = w.to(device=x.device, dtype=x.dtype).reshape(-1, 1)
+                if x.dim() == 3:
+                    w = w.unsqueeze(0)
+            d = d * w
         if cond_only and flags is not None:
             d = _mask_by_flags(d, x, flags)
         if token_mask is not None:
@@ -448,6 +469,28 @@ _HELM_HOOKS = "helm_hooks"
 
 def _add_hook(mp, hook):
     mp.model_options.setdefault(_HELM_HOOKS, []).append(hook)
+
+
+def _add_axis_hook(mp, vec, axis_name, block, strength, meta_path, cond_only=False, start=0.0, end=1.0,
+                   mode="push", token_mask=None, clamp_k=1.0, mask_offset=0, shaper=None,
+                   progress_window=None, debug=True):
+    """The one place that turns an axis vector into a registered Helm hook on a (cloned) patcher.
+    Used by HelmApply, HelmDial (through HelmApply) and Helm · Apply. The caller installs the wrapper."""
+    entry = _calib_for(mp)
+    if entry and entry.get("dim") and int(entry["dim"]) != int(vec.shape[-1]):
+        raise ValueError(
+            f"axis '{axis_name}' dim {int(vec.shape[-1])} != calibrated model dim {int(entry['dim'])} "
+            f"for {_model_name(mp)}; rebuild the axis on this model or pick a compatible one.")
+    fn = _make_apply_hook(vec, strength, axis_name, cond_only, meta_path, mode=mode, token_mask=token_mask,
+                          clamp_k=clamp_k, debug=debug, mask_offset=int(mask_offset), shaper=shaper)
+    hook = {"block": int(block), "fn": fn, "cond_only": bool(cond_only),
+            "start": float(start), "end": float(end)}
+    if shaper is not None:
+        hook["ctx"] = True
+    if progress_window is not None:
+        hook["progress_window"] = tuple(progress_window)
+    _add_hook(mp, hook)
+    return entry
 
 
 def _wrapper(mp):
@@ -475,6 +518,16 @@ def _wrapper(mp):
         entry = _calib_for(mp)
         blocks, _ = _find_blocks(mp, which=entry.get("module") if entry else None)
         frac = (step / total) if total else 0.0
+        ts_in = c_in.get("timestep")
+        try:
+            sigma = float(ts_in.flatten()[0]) if ts_in is not None else None
+        except Exception:
+            sigma = None
+        shapes = c_in.get("c", {}).get("latent_shapes") or getattr(getattr(mp, "model", None), "latent_shapes", None)
+        # `ctx` is handed only to hooks that ask for it (Helm · Apply): where we are in the render, and the
+        # latent shapes the sampler packed (the video layout of H3 is derived from them).
+        call = {"step": step, "total": total, "sigma": sigma, "latent_shapes": shapes,
+                "progress": H.progress_from_sigma(sigma, sig, step, total)}
         prev_aimdo = getattr(cm, "aimdo_enabled", None)
         handles = []
         try:
@@ -492,6 +545,12 @@ def _wrapper(mp):
                     acc["last"] = (total is None) or (step + 1 >= total)
                 if frac < h.get("start", 0.0) or frac > h.get("end", 1.0):
                     continue
+                win = h.get("progress_window")
+                if win is not None and not H.stage_active(win, call["progress"]):
+                    continue
+                kw = {"flags": flags}
+                if h.get("ctx"):
+                    kw["ctx"] = call
                 if h.get("all_blocks"):
                     for i in range(len(blocks)):
                         handles.append(blocks[i].register_forward_hook(partial(h["fn"], flags=flags, idx=i)))
@@ -500,7 +559,7 @@ def _wrapper(mp):
                 if idx >= len(blocks):
                     raise RuntimeError(
                         f"block {idx} >= {len(blocks)} on {mp.model.diffusion_model.__class__.__name__}")
-                handles.append(blocks[idx].register_forward_hook(partial(h["fn"], flags=flags)))
+                handles.append(blocks[idx].register_forward_hook(partial(h["fn"], **kw)))
             if prev_aimdo is not None:
                 cm.aimdo_enabled = False
             if prev is not None:
@@ -806,6 +865,7 @@ class HelmCollect:
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
     CATEGORY = "Helm/Lab"
+    DEPRECATED = True  # hidden from node search by default (ComfyUI "show deprecated nodes" setting); still loads and runs
     DESCRIPTION = "Lab: record what one transformer block does while a prompt renders. Step 1 of the manual route to an axis."
     SEARCH_ALIASES = ["record", "collect activations", "advanced"]
 
@@ -839,6 +899,7 @@ class HelmVector:
     RETURN_NAMES = ("axis",)
     FUNCTION = "run"
     CATEGORY = "Helm/Lab"
+    DEPRECATED = True  # hidden from node search by default (ComfyUI "show deprecated nodes" setting); still loads and runs
     DESCRIPTION = "Lab: subtract two recordings into one axis file. Step 2 of the manual route to an axis."
     SEARCH_ALIASES = ["build axis", "make vector", "advanced"]
 
@@ -897,6 +958,7 @@ class HelmApply:
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
     CATEGORY = "Helm/Lab"
+    DEPRECATED = True  # hidden from node search by default (ComfyUI "show deprecated nodes" setting); still loads and runs
     DESCRIPTION = "Lab: apply an axis with full manual control (strength, block, window, mask). Most people want Helm · Dial instead."
     SEARCH_ALIASES = ["apply axis", "manual strength", "mask", "advanced"]
 
@@ -948,16 +1010,9 @@ class HelmApply:
             raise ValueError("mask_offset given without mask")
 
         mp = model.clone()
-        entry = _calib_for(mp)
-        if entry and entry.get("dim") and int(entry["dim"]) != int(vec.shape[-1]):
-            raise ValueError(
-                f"axis '{axis}' dim {int(vec.shape[-1])} != calibrated model dim {int(entry['dim'])} "
-                f"for {_model_name(mp)}; rebuild the axis on this model or pick a compatible one.")
-        fn = _make_apply_hook(vec, strength, axis, cond_only, meta_path,
-                              mode=mode, token_mask=token_mask, clamp_k=clamp_k, debug=True,
-                              mask_offset=int(mask_offset))
-        _add_hook(mp, {"block": int(block), "fn": fn, "cond_only": bool(cond_only),
-                       "start": float(start_percent), "end": float(end_percent)})
+        entry = _add_axis_hook(mp, vec, axis, int(block), strength, meta_path, cond_only=cond_only,
+                               start=float(start_percent), end=float(end_percent), mode=mode,
+                               token_mask=token_mask, clamp_k=clamp_k, mask_offset=int(mask_offset))
         _install_wrapper(mp)
         cal = f", calibrated module={entry.get('module')}" if entry else ""
         print(f"[helm] applying '{axis}' at block {block}, strength={strength}, mode={mode} "
@@ -1103,6 +1158,7 @@ class HelmProbe:
     RETURN_NAMES = ("model",)
     FUNCTION = "run"
     CATEGORY = "Helm/Lab"
+    DEPRECATED = True  # hidden from node search by default (ComfyUI "show deprecated nodes" setting); still loads and runs
     DESCRIPTION = "Lab: record every block at once, to find where two prompts differ most. Run twice, then use Probe report."
     SEARCH_ALIASES = ["probe", "find block", "advanced"]
 
@@ -1137,6 +1193,7 @@ class HelmProbeReport:
     RETURN_NAMES = ("peak_block",)
     FUNCTION = "run"
     CATEGORY = "Helm/Lab"
+    DEPRECATED = True  # hidden from node search by default (ComfyUI "show deprecated nodes" setting); still loads and runs
     DESCRIPTION = "Lab: rank the blocks of two probes by how much the prompts differ. A measurement, not a verified pick."
     SEARCH_ALIASES = ["probe report", "rank blocks", "advanced"]
 
@@ -1169,10 +1226,432 @@ class HelmProbeReport:
         return (int(peak["block"]),)
 
 
-NODE_CLASS_MAPPINGS = {"HelmDial": HelmDial, "HelmMakeAxis": HelmMakeAxis,
+# --- Helm 0.5: the HELM family (Axis -> Shape -> Mix -> Apply) ------------------------------------
+# One data type, `HELM` (helm_core.Helm), flows between four small nodes. Only Apply patches the model.
+SOURCE_LIBRARY = "library"
+SOURCE_PROMPTS = "prompts"
+STAGE_LABELS = {"all steps": "all", "early steps (composition)": "early", "late steps (finish)": "late"}
+CURVE_CHOICES = ["constant", "ramp", "keyframes"]
+H3_CLASS = "MiniMaxH3Model"
+
+# Pairs whose difference is NOT the idea: the same scene in other words, a different subject in the same
+# template, or just a different look. Their directions are what every axis built from a prompt change picks up
+# by accident (a prompt that is longer or more vivid reads as a colour or style shift). Debias removes them.
+NUISANCE_PAIRS = [
+    ("a photo of a house on a hill", "an image showing a house located on a hill"),
+    ("a street with parked cars", "a view of a street where cars are parked"),
+    ("a photo of a cat sitting on a sofa", "a photo of a lighthouse standing on a cliff"),
+    ("a photo of a woman reading in a cafe", "a photo of a red bicycle leaning against a wall"),
+    ("a photo of a mountain lake at noon", "a photo of a crowded city crossing"),
+    ("a photo of a bowl of soup on a table", "a photo of a small robot standing in a field"),
+    ("a photo of a house on a hill, warm orange tones", "a photo of a house on a hill, cool blue tones"),
+    ("a vivid, colourful photo of a market", "a muted, desaturated photo of a market"),
+]
+_NUISANCE_CACHE = {}
+
+
+def _estimate_safe_max_from(vec, means, fraction=SAFE_MAX_ACTIVATION_FRACTION):
+    """Pure. Same conservative, UNVERIFIED estimate as Make Axis, for an axis averaged over several pairs:
+    the strength at which `strength*axis` is `fraction` of the typical activation norm."""
+    d = float(vec.norm())
+    if d <= 1e-12:
+        raise ValueError("the prompt pairs cancel out completely, so there is no direction to save. Make the "
+                         "idea clearer in the pairs, or use pairs that differ more.")
+    mu = sum(float(m.norm()) for m in means) / len(means)
+    return round(min(SAFE_MAX_CEILING, fraction * mu / d), 4) or 0.0001
+
+
+def _nuisance_diffs(model, block, module, model_name, drive, key):
+    """The nuisance directions for this model and block: cached for the session, because they do not depend on
+    the idea. Returns (diffs [K, dim], means list)."""
+    if key in _NUISANCE_CACHE:
+        return _NUISANCE_CACHE[key]
+    pos, neg = [], []
+    for a, b in NUISANCE_PAIRS:
+        pos.append(_record_mean(model, block, module, model_name, False, lambda mp, t=a: drive(mp, t)))
+        neg.append(_record_mean(model, block, module, model_name, False, lambda mp, t=b: drive(mp, t)))
+    out = (H.pair_diffs(pos, neg), pos + neg)
+    _NUISANCE_CACHE[key] = out
+    return out
+
+
+def _axis_from_library(choice, model):
+    entry = _dial_resolve(choice)
+    name = entry["file"]
+    vec = _load_axis(_resolve_axis(name))
+    meta = _read_meta(name) or {}
+    if model is not None:
+        _check_axis_fits_model(model, entry, meta, vec)
+    safe = meta.get("safe_max") or entry.get("safe_max")
+    if not safe:
+        raise ValueError(f"'{entry['label']}' records no safe range, so Helm cannot scale it. Rebuild it with "
+                         f"'Helm · Axis' (from prompts), or use 'Helm Lab · Apply axis' with a strength.")
+    block = meta.get("block")
+    if block is None and model is not None:
+        calib = _calib_for(model)
+        block = calib.get("default_block") if calib else None
+    info = {"section": entry.get("section")}
+    if meta.get("safe_max_source"):
+        info["safe_max_source"] = str(meta["safe_max_source"])[:300]
+    return H.HelmAxis(name=name, label=entry["label"], vec=vec, model=meta.get("model") or entry.get("model"),
+                      module=meta.get("module"), block=int(block) if block is not None else None,
+                      safe_max=float(safe), source="library", info=info)
+
+
+class HelmAxis:
+    """WHAT idea. Pick one from the library, or build one from several prompt pairs. Chainable."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        choices = _dial_choices()
+        return {"required": {
+            "source": ([SOURCE_LIBRARY, SOURCE_PROMPTS], {"default": SOURCE_LIBRARY,
+                       "tooltip": "library = pick a ready-made idea from the menu below. prompts = build a new idea from "
+                                  "the prompt pairs (needs model, clip and latent)."}),
+            "idea": (choices, {"default": _dial_default(choices),
+                               "tooltip": "The idea to move (library source). Essentials are ideas Helm's own benchmark "
+                                          "shows still look right when moved; Subtle ones change the picture only a little; "
+                                          "Custom are axes you made or dropped in. The model in brackets must match the "
+                                          "model you loaded."}),
+        }, "optional": {
+            "helm": ("HELM", {"tooltip": "Optional. Connect another Helm node here to chain ideas: the new idea is "
+                                         "added to the ones already in the chain."}),
+            "model": ("MODEL", {"tooltip": "Needed to build from prompts. In library mode it is optional and only used "
+                                           "to refuse an idea made for another model early."}),
+            "clip": ("CLIP", {"tooltip": "The text encoder of the same model. Needed to build from prompts."}),
+            "latent": ("LATENT", {"tooltip": "An empty latent; its size is used for the short test renders. A small "
+                                             "size (512) is enough and faster. Needed to build from prompts."}),
+            "pairs": ("STRING", {"multiline": True, "default":
+                                 "a quiet street at dawn, thick fog || a quiet street at dawn, clear air\n"
+                                 "a mountain lake, thick fog || a mountain lake, clear air\n"
+                                 "a market square, thick fog || a market square, clear air",
+                                 "tooltip": "One pair per line: 'with the idea || without the idea'. Use several pairs "
+                                            "with different subjects: what the pairs share is the idea, what differs "
+                                            "cancels out. Change only the idea inside each pair."}),
+            "name": ("STRING", {"default": "my_axis",
+                                "tooltip": "Name for the new idea. It is saved in your user/steer folder and then appears "
+                                           "under Custom. Leave empty to use it without saving."}),
+            "debias": ("BOOLEAN", {"default": True,
+                                   "tooltip": "Experimental. Remove the 'look and colour' part that any prompt change "
+                                              "carries, estimated from built-in pairs of irrelevant changes (other wording, "
+                                              "other subject, other look). Costs extra test renders once per session."}),
+            "debias_strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05,
+                                          "tooltip": "How much of the nuisance part to remove. 1 = all of it, 0 = none."}),
+            "steps": ("INT", {"default": 4, "min": 1, "max": 30,
+                              "tooltip": "Sampling steps of each short test render. The images are thrown away."}),
+            "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff,
+                             "tooltip": "Same seed for every test render so only the prompt differs."}),
+            "cfg": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 30.0, "step": 0.1,
+                              "tooltip": "Guidance for the test renders. Use the value your model normally uses."}),
+            "block": ("INT", {"default": -1, "min": -1, "max": 512,
+                              "tooltip": "-1 = the recommended block for this model, or the middle of the model if it "
+                                         "is not calibrated."}),
+        }}
+    RETURN_TYPES = ("HELM",)
+    RETURN_NAMES = ("helm",)
+    OUTPUT_TOOLTIPS = ("The idea (plus any chained before it). Connect to Helm · Shape, Mix or Apply.",)
+    FUNCTION = "run"
+    CATEGORY = "Helm"
+    DESCRIPTION = ("WHAT idea to move: pick one from the library, or build one from several with/without prompt pairs. "
+                   "Connect to Helm · Apply (minimum), or to Shape and Mix first.")
+    SEARCH_ALIASES = ["helm", "axis", "idea", "concept", "steer", "slider", "make axis", "pairs"]
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, idea=""):
+        return True  # the menu may not list an axis built earlier in this very run; checked in run()
+
+    def run(self, source, idea, helm=None, model=None, clip=None, latent=None, pairs="", name="my_axis",
+            debias=True, debias_strength=1.0, steps=4, seed=0, cfg=1.0, block=-1, _drive=None):
+        if helm is not None:
+            H.validate_helm(helm, "helm")
+        if source == SOURCE_LIBRARY:
+            axis = _axis_from_library(idea, model)
+        else:
+            axis = self._from_prompts(model, clip, latent, pairs, name, debias, debias_strength, steps, seed, cfg,
+                                      block, _drive)
+        return (H.Helm.of(axis, helm),)
+
+    def _from_prompts(self, model, clip, latent, pairs, name, debias, debias_strength, steps, seed, cfg, block, _drive):
+        if model is None or (_drive is None and (clip is None or latent is None)):
+            raise ValueError("Building an idea from prompts needs the model, clip and latent inputs connected.")
+        plist = H.parse_pairs(pairs)
+        if not plist:
+            raise ValueError("Write at least one pair, one per line: 'with the idea || without the idea'.")
+        entry = _calib_for(model)
+        blocks, module = _find_blocks(model, which=entry.get("module") if entry else None)
+        if int(block) < 0:
+            block = int(entry["default_block"]) if entry and entry.get("default_block") is not None else len(blocks) // 2
+        if int(block) >= len(blocks):
+            raise ValueError(f"block {int(block)} does not exist: this model has {len(blocks)} blocks (0-{len(blocks) - 1}).")
+        model_name = _model_name(model)
+        drive = _drive or (lambda mp, text: _sample_for_axis(mp, clip, text, latent, steps, seed, cfg))
+        pos = [_record_mean(model, block, module, model_name, False, lambda mp, t=a: drive(mp, t)) for a, _ in plist]
+        neg = [_record_mean(model, block, module, model_name, False, lambda mp, t=b: drive(mp, t)) for _, b in plist]
+        diffs = H.pair_diffs(pos, neg)
+        vec = H.average_pairs(diffs)
+        agreement = H.pair_agreement(diffs)
+        info = {"n_pairs": len(plist), "pair_agreement": round(sum(agreement) / len(agreement), 4),
+                "debiased": False}
+        warns = []
+        if len(plist) > 1 and info["pair_agreement"] < 0.2:
+            print(f"[helm] Axis: the {len(plist)} pairs barely agree (average cosine {info['pair_agreement']:.2f}); "
+                  f"they may not describe one idea.")
+        means = pos + neg
+        if debias and float(debias_strength) > 0:
+            shape = tuple(latent["samples"].shape) if isinstance(latent, dict) and "samples" in latent else None
+            key = (model_name, int(block), int(vec.shape[0]), int(steps), float(cfg), int(seed), shape)
+            n_diffs, n_means = _nuisance_diffs(model, block, module, model_name, drive, key)
+            basis = H.nuisance_basis(n_diffs)
+            vec, removed = H.debias_project(vec, basis, debias_strength)
+            means = means + n_means
+            info.update(debiased=True, nuisance_removed=round(removed, 4), nuisance_rank=int(basis.shape[0]))
+            if removed > 0.9:
+                warns.append("Almost the whole idea lay in the nuisance directions (look, wording or subject), so "
+                             "little is left after debiasing. Try pairs that differ more, or turn debias off.")
+        safe = _estimate_safe_max_from(vec, means)
+        info["safe_max_source"] = "estimate: 0.5% of the activation norm, not verified by renders"
+        label = str(name).strip() or "pair axis"
+        axis_name = _safe_axis_name(name) if str(name).strip() else "pairs_unsaved"
+        if str(name).strip():
+            _save_axis(axis_name, vec, {
+                "kind": "axis", "dim": int(vec.shape[0]), "block": int(block), "model": model_name, "module": module,
+                "norm": round(float(vec.norm()), 3), "safe_max": safe, "safe_max_source": info["safe_max_source"],
+                "from": {"pairs": [[a, b] for a, b in plist]}, "label": label, "made_by": "HelmAxis",
+                "n_pairs": len(plist), "debiased": info["debiased"]})
+        for w in warns:
+            print(f"[helm] Axis: {w}")
+        print(f"[helm] Axis: built '{label}' from {len(plist)} pair(s) at block {int(block)}"
+              f"{', debiased' if info['debiased'] else ''}. Its safe range 0..{safe} is an ESTIMATE; compare Before | After.")
+        return H.HelmAxis(name=axis_name, label=label, vec=vec, model=model_name, module=module, block=int(block),
+                          safe_max=safe, source="pairs", info=info)
+
+
+class HelmShape:
+    """HOW MUCH and WHEN: signed amount, a time curve for video, and the part of the render it acts in."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "helm": ("HELM", {"tooltip": "The idea(s) to shape, from Helm · Axis or Mix. Shape sets how much and when "
+                                         "for every idea already in the chain."}),
+            "amount": ("FLOAT", {"default": 0.5, "min": -1.0, "max": 1.0, "step": 0.01, "display": "slider",
+                                 "tooltip": "How much of the idea, signed. 0 = off, +1 = the strongest safe setting, -1 = "
+                                            "the opposite idea at the same strength. With a time curve this is the amount "
+                                            "at the start of the clip."}),
+        }, "optional": {
+            "stage": (list(STAGE_LABELS), {"default": "all steps",
+                      "tooltip": "Experimental. Which part of the render the idea acts in: early steps shape the "
+                                 "composition, late steps the finish. Uses the sampler's own noise level, so a shifted "
+                                 "schedule is respected."}),
+            "split": ("FLOAT", {"default": 0.5, "min": 0.05, "max": 0.95, "step": 0.05,
+                                "tooltip": "Where early ends and late begins, as a share of the render (0.5 = halfway "
+                                           "through the noise schedule). Only used when stage is not 'all steps'."}),
+            "curve": (CURVE_CHOICES, {"default": "constant",
+                      "tooltip": "Experimental, video only (MiniMax H3). constant = the same amount on every frame. "
+                                 "ramp = from 'amount' on the first frame to 'end_amount' on the last. keyframes = "
+                                 "the positions you list. Other models ignore the curve and use its average."}),
+            "end_amount": ("FLOAT", {"default": 0.0, "min": -1.0, "max": 1.0, "step": 0.01,
+                                     "tooltip": "Amount on the last frame (ramp curve)."}),
+            "easing": (list(H.EASINGS), {"default": "linear",
+                       "tooltip": "How the ramp moves from start to end: linear, slow start, slow end, or smooth both."}),
+            "keyframes": ("STRING", {"default": "0:0.2, 0.5:0.8, 1:0.4",
+                                     "tooltip": "Keyframes curve: position along the clip (0 = first frame, 1 = last) and "
+                                                "amount (-1..1), as 'position:amount' separated by commas. Positions must "
+                                                "increase; 2 to 8 keyframes."}),
+        }}
+    RETURN_TYPES = ("HELM",)
+    RETURN_NAMES = ("helm",)
+    OUTPUT_TOOLTIPS = ("The same ideas with their amount, curve and stage set.",)
+    FUNCTION = "run"
+    CATEGORY = "Helm"
+    EXPERIMENTAL = True
+    DESCRIPTION = ("HOW MUCH and WHEN: a signed amount, an optional time curve for video, and whether the idea acts in "
+                   "the early (composition) or late (finish) part of the render. Optional: Axis goes to Apply without it.")
+    SEARCH_ALIASES = ["helm", "shape", "amount", "curve", "ramp", "keyframes", "easing", "early", "late", "signed"]
+
+    def run(self, helm, amount, stage="all steps", split=0.5, curve="constant", end_amount=0.0, easing="linear",
+            keyframes=""):
+        H.validate_helm(helm, "helm")
+        if stage not in STAGE_LABELS:
+            raise ValueError(f"stage must be one of {list(STAGE_LABELS)} (got {stage!r})")
+        if curve == "constant":
+            c = None
+        elif curve == "ramp":
+            c = H.HelmCurve("ramp", end=end_amount, easing=easing)
+        elif curve == "keyframes":
+            c = H.HelmCurve("keys", keys=H.parse_keyframes(keyframes))
+        else:
+            raise ValueError(f"curve must be one of {CURVE_CHOICES} (got {curve!r})")
+        st = STAGE_LABELS[stage]
+        H.stage_window(st, split)  # validates the split
+        amount = float(amount)
+        if c is not None and c.kind == "keys":
+            amount = c.keys[0][1]  # keyframes are absolute; the first one is the amount at the start
+        out = helm.map_axes(lambda a: a.with_changes(amount=amount, curve=c, stage=st, split=float(split)))
+        print(f"[helm] Shape: amount {amount:+.2f}, curve {curve}, stage {st}"
+              f"{' (split ' + format(float(split), 'g') + ')' if st != 'all' else ''}, on {len(out.axes)} idea(s)")
+        return (out,)
+
+
+class HelmMix:
+    """COMBINE: several HELMs with weights, optionally made independent (Gram-Schmidt) of each other."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        w = lambda n: ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                                 "tooltip": f"How much of input {n} takes part, 0-1. It multiplies that input's amount."})
+        return {"required": {
+            "helm_1": ("HELM", {"tooltip": "First input. A chain of several ideas counts as one input."}),
+            "orthogonalize": ("BOOLEAN", {"default": True,
+                              "tooltip": "Experimental. Make the active ideas independent of each other, in order (the "
+                                         "first stays as it is), so moving one does not drag another with it. Needs ideas "
+                                         "for the same model and block."}),
+        }, "optional": {
+            "weight_1": w(1),
+            "helm_2": ("HELM", {"tooltip": "Optional second input."}), "weight_2": w(2),
+            "helm_3": ("HELM", {"tooltip": "Optional third input."}), "weight_3": w(3),
+            "helm_4": ("HELM", {"tooltip": "Optional fourth input."}), "weight_4": w(4),
+            "axis_weights": ("STRING", {"default": "",
+                             "tooltip": "Optional, one weight (0-1) per idea in the order they arrive, separated by "
+                                        "commas, for example '1, 0.5, 0.8'. Empty = all 1. Multiplies the input weights."}),
+        }}
+    RETURN_TYPES = ("HELM", "STRING")
+    RETURN_NAMES = ("helm", "report")
+    OUTPUT_TOOLTIPS = ("All the ideas in one HELM, weighted and (optionally) made independent.",
+                       "Plain-text notes: mismatched models or blocks, ideas that could not be separated.")
+    FUNCTION = "run"
+    CATEGORY = "Helm"
+    EXPERIMENTAL = True
+    DESCRIPTION = ("COMBINE ideas: several HELM inputs with weights, optionally made independent of each other so moving "
+                   "one does not move another. Warns when ideas are for different models or blocks.")
+    SEARCH_ALIASES = ["helm", "mix", "combine", "blend", "weights", "orthogonal", "independent", "gram schmidt"]
+
+    def run(self, helm_1, orthogonalize=True, weight_1=1.0, helm_2=None, weight_2=1.0, helm_3=None, weight_3=1.0,
+            helm_4=None, weight_4=1.0, axis_weights=""):
+        axes = []
+        for i, (h, w) in enumerate([(helm_1, weight_1), (helm_2, weight_2), (helm_3, weight_3), (helm_4, weight_4)], 1):
+            if h is None:
+                continue
+            H.validate_helm(h, f"helm_{i}")
+            w = H._num(w, f"weight_{i}", 0.0, 1.0)
+            axes.extend(a.with_changes(weight=a.weight * w) for a in h.axes)
+        if len(axes) > H.MAX_AXES:
+            raise ValueError(f"Mix can combine at most {H.MAX_AXES} ideas (got {len(axes)}).")
+        per = H.parse_weights(axis_weights, len(axes))
+        axes = [a.with_changes(weight=a.weight * w) for a, w in zip(axes, per)]
+        prior = tuple(w for h in (helm_1, helm_2, helm_3, helm_4) if h is not None for w in h.warnings)
+        new_axes, warns = H.mix_axes(axes, orthogonalize=bool(orthogonalize))
+        out = H.Helm(tuple(new_axes), prior + tuple(warns))
+        report = "\n".join(warns) if warns else (
+            f"{len(new_axes)} idea(s) combined" + ("; active ideas made independent." if orthogonalize else "."))
+        for w in warns:
+            print(f"[helm] Mix: {w}")
+        print(f"[helm] Mix: {len(new_axes)} idea(s), orthogonalize={bool(orthogonalize)}")
+        return (out, report)
+
+
+def _make_shaper(axis, is_h3):
+    """The per-hook multiplier for one HELM axis: its signed amount, or (video curve) a per-token tensor."""
+    state = {"cache": {}, "warned": False}
+
+    def shaper(x, ctx):
+        if not axis.has_curve:
+            return axis.amount
+        shapes = (ctx or {}).get("latent_shapes")
+        if not is_h3 or not shapes:
+            if not state["warned"]:
+                print(f"[helm] '{axis.label}': the time curve is only available for MiniMax H3 video; using its "
+                      f"average amount {axis.mean_amount():+.2f} on every frame.")
+                state["warned"] = True
+            return axis.mean_amount()
+        seq = int(x.shape[-2])
+        shape = tuple(int(v) for v in shapes[0])
+        key = (seq, shape)
+        if key not in state["cache"]:
+            try:
+                layout = H.h3_video_layout(seq, shape)
+            except H.HelmValueError as e:
+                raise RuntimeError(f"Helm time curve for '{axis.label}': {e}. The curve is refused rather than "
+                                   f"guessed; set the curve to constant.")
+            state["cache"][key] = H.frame_row_scale(seq, layout, axis.series(H.frame_times(layout[1])), outside=0.0)
+        return state["cache"][key]
+
+    return shaper
+
+
+class HelmApplyNode:
+    """WHERE: the only 0.5 node that patches the model. Reuses the hook machinery of Helm Lab · Apply axis."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "model": ("MODEL", {"tooltip": "The model to steer. Connect it between your model loader and the sampler."}),
+            "helm": ("HELM", {"tooltip": "The ideas to apply, from Helm · Axis, Shape or Mix. A chain is applied as it "
+                                         "is. With no Shape the default is amount 0.5, the whole clip, all steps."}),
+        }, "optional": {
+            "cond_only": ("BOOLEAN", {"default": False,
+                                      "tooltip": "Add the idea only to the prompt-conditioned half of each guided step. "
+                                                 "Default off, as in every published Helm result."}),
+            "mode": (["push", "norm", "clamp"], {"default": "push",
+                     "tooltip": "push = add the idea (default). norm = same, rescaled to each token's original size. "
+                                "clamp = move along the idea but never past the range the model already produces."}),
+        }}
+    RETURN_TYPES = ("MODEL",)
+    RETURN_NAMES = ("model",)
+    OUTPUT_TOOLTIPS = ("The same model with the ideas dialed in. Connect it to your sampler.",)
+    FUNCTION = "run"
+    CATEGORY = "Helm"
+    DESCRIPTION = ("WHERE the ideas go: apply a HELM to the model. This is the only 0.5 node that changes the model. "
+                   "Minimum setup: Helm · Axis -> Helm · Apply.")
+    SEARCH_ALIASES = ["helm", "apply", "patch", "steer", "inject", "model"]
+
+    def run(self, model, helm, cond_only=False, mode="push"):
+        H.validate_helm(helm, "helm")
+        mp = model.clone()
+        loaded = _model_name(mp)
+        is_h3 = loaded == H3_CLASS
+        for w in helm.warnings:
+            print(f"[helm] Apply: note: {w}")
+        n = 0
+        for a in helm.axes:
+            if not a.is_active:
+                print(f"[helm] Apply: '{a.label}' is off (amount or weight 0); skipped.")
+                continue
+            if a.model and loaded and a.model != loaded:
+                raise ValueError(f"'{a.label}' was made for {_family(a.model)}, but the model connected to Helm · Apply "
+                                 f"is {_family(loaded)}. Use an idea made for {_family(loaded)}, or build one for this "
+                                 f"model with Helm · Axis.")
+            if not a.safe_max:
+                raise ValueError(f"'{a.label}' records no safe range, so Helm cannot scale it. Rebuild it with Helm · Axis.")
+            block = a.block
+            if block is None:
+                calib = _calib_for(mp)
+                block = calib.get("default_block") if calib else None
+            if block is None:
+                raise ValueError(f"'{a.label}' does not record which block it was made at. Rebuild it with Helm · Axis.")
+            window = None if a.stage == "all" else H.stage_window(a.stage, a.split)
+            _add_axis_hook(mp, a.vec, a.label, int(block), a.safe_max * a.weight, "(in-memory HELM axis)",
+                           cond_only=cond_only, mode=mode, shaper=_make_shaper(a, is_h3), progress_window=window)
+            n += 1
+            curve = f", curve {a.curve.kind}" if a.has_curve else ""
+            print(f"[helm] Apply: '{a.label}' at block {int(block)}, amount {a.amount:+.2f} x weight {a.weight:g} of "
+                  f"safe range 0..{a.safe_max:g}, stage {a.stage}{curve}")
+        if n == 0:
+            return (model,)
+        _install_wrapper(mp)
+        return (mp,)
+
+
+NODE_CLASS_MAPPINGS = {"HelmAxis": HelmAxis, "HelmShape": HelmShape, "HelmMix": HelmMix,
+                       "HelmApplyNode": HelmApplyNode,
+                       "HelmDial": HelmDial, "HelmMakeAxis": HelmMakeAxis,
                        "HelmCollect": HelmCollect, "HelmVector": HelmVector, "HelmApply": HelmApply,
                        "HelmProbe": HelmProbe, "HelmProbeReport": HelmProbeReport}
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "HelmAxis": "Helm \u00b7 Axis",
+    "HelmShape": "Helm \u00b7 Shape",
+    "HelmMix": "Helm \u00b7 Mix",
+    "HelmApplyNode": "Helm \u00b7 Apply",
     "HelmDial": "Helm \u00b7 Dial",
     "HelmMakeAxis": "Helm \u00b7 Make Axis",
     "HelmCollect": "Helm Lab \u00b7 Record activations",

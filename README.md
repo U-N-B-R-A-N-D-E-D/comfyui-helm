@@ -159,7 +159,11 @@ Measured with Helm: MiniMax H3 t2v (`mood`, `density`) and Z-Image. The models u
 
 | Node (display name) | Class | Category | For |
 | :--- | :--- | :--- | :--- |
-| **Helm · Dial** | `HelmDial` | `Helm` | Everyday control: pick an idea by name, move Amount 0-1. |
+| **Helm · Axis** *(0.5-dev)* | `HelmAxis` | `Helm` | WHAT idea: pick from the library, or build one from several with/without prompt pairs (averaged, debiased). Chainable. |
+| **Helm · Shape** *(0.5-dev, experimental)* | `HelmShape` | `Helm` | HOW MUCH and WHEN: signed amount -1..+1, video time curve, early/late stage. Optional. |
+| **Helm · Mix** *(0.5-dev, experimental)* | `HelmMix` | `Helm` | COMBINE ideas with weights; makes them independent of each other. Optional. |
+| **Helm · Apply** *(0.5-dev)* | `HelmApplyNode` | `Helm` | WHERE: `MODEL` + `HELM` to `MODEL`. The only 0.5 node that patches the model. |
+| **Helm · Dial** | `HelmDial` | `Helm` | Everyday control: pick an idea by name, move Amount 0-1. Still the one-node shortcut. |
 | **Helm · Make Axis** | `HelmMakeAxis` | `Helm` | Two prompts in, a new axis out (both passes in one run). |
 | Helm Lab · Record activations | `HelmCollect` | `Helm/Lab` | Record what the model does for one prompt. |
 | Helm Lab · Build axis from two recordings | `HelmVector` | `Helm/Lab` | Subtract two recordings into an axis file. |
@@ -167,7 +171,9 @@ Measured with Helm: MiniMax H3 t2v (`mood`, `density`) and Z-Image. The models u
 | Helm Lab · Probe every block | `HelmProbe` | `Helm/Lab` | Onboard a new model: record every block. |
 | Helm Lab · Probe report | `HelmProbeReport` | `Helm/Lab` | Rank blocks by prompt separation. |
 
-Class names are unchanged from 0.3.x, so saved workflows still load; only the menu location and display names changed.
+Class names are unchanged from 0.3.x, so saved workflows still load; only the menu location and display names changed. The Lab nodes are flagged `DEPRECATED`, which is ComfyUI's supported way to hide a node from search by default (they still load and run; turn on "show deprecated nodes" in the ComfyUI settings to find them again).
+
+**Helm 0.5 (in development).** Four small nodes chained through one custom `HELM` type: `Axis` (what) -> `Shape` (how much, when) -> `Mix` (combine) -> `Apply` (where). The minimum path is two nodes, `Axis -> Apply` (amount 0.5, the whole clip, all steps). See [docs/SPEC-0.5.md](docs/SPEC-0.5.md) for the design, what is experimental, and what still has to be measured on a GPU.
 
 - **`HelmDial` (MODEL → MODEL):** `axis` is a menu of human names: *Essentials* (axes this repo's benchmark shows hold, ordered by visible impact; listed only when the axis file is on disk; catalog in `axes_catalog.json`), *Subtle* (hold, but little visible change) then *Custom* (everything else, including axes made by Make Axis). `amount` maps 0 → `safe_max` recorded in the axis header (falling back to the catalog's highest tested strength); it never extrapolates. Delegates to `HelmApply`, so the hook is the same code. Refuses, in plain words, an axis made for another model. Optional `axis_from` takes the `axis` output of Make Axis.
 - **`HelmMakeAxis` (MODEL + CLIP + LATENT → MODEL, STRING):** encodes the two prompts, runs two short renders through ComfyUI's own sampler with the same hook machinery as `HelmCollect`, subtracts the means (same arithmetic as `HelmVector`), and saves a self-describing axis with an *estimated* conservative `safe_max` (0.5% of the activation norm; stored with `safe_max_source`, never presented as verified). Works with models that take plain text conditioning (Z-Image today); for H3 build axes with the Lab nodes.

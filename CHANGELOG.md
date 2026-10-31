@@ -36,7 +36,7 @@ The nodes and templates now deliver the product promise: one slider moves one id
 - Removed a text-filter-bypass LoRA group and loader from the Krea 2 workflows (UI and API format).
 - Ships seven more Z-Image axes that hold in the benchmark (tensors unchanged; header gained `safe_max` and `safe_max_source`), hashes in `docs/AXES.md`. Template 1 defaults to *Light angle (raking)*.
 - Template thumbnails 1 and 2 and per-axis before/after thumbnails (`web/previews/`, exposed as `preview` by `/helm/axes`) are real Helm renders within each axis' safe range, labelled "Before" and "After (Amount 1.0)"; the technical numbers and provenance are in `docs/AXES.md`. Everything in the pack is English, enforced by `tests/test_language.py`.
-- Tests: 84 -> 210 (209 run everywhere; 1 optional check needs `COMFYUI_DIR`). New: Dial mapping and mismatch errors, Make Axis equals Collect + Vector,
+- Tests: 84 -> 211 (210 run everywhere; 1 optional check needs `COMFYUI_DIR`). New: Dial mapping and mismatch errors, Make Axis equals Collect + Vector,
   template structure, core node types).
 
 ## 0.3.11 — 2026-10-30

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 (unreleased)
+## 0.4.0 — 2026-10-31
 
 The nodes and templates now deliver the product promise: one slider moves one idea, no prompt rewrite.
 

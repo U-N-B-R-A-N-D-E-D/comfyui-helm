@@ -194,10 +194,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "Helm on LTX (Text to Video, LTX-2.3).\n\nThe official LTX t2v blueprint with HelmApply inserted between the model LoRA and the\nCFGGuiders (inside this subgraph): CheckpointLoader -> LoraLoaderModelOnly -> HelmApply -> CFGGuider.\n\nSet the 'axis' widget to a built axis (see example_axes/). strength ~0.15, block 20 to start.\nUNTESTED ON LTX: LTX weights were not at hand; block/strength are H3 defaults. Verify with a sweep."
+        "text": "Helm on LTX (Text to Video, LTX-2.3).\n\nThe official LTX t2v blueprint with HelmApply inserted between the model LoRA and the\nCFGGuiders (inside this subgraph): CheckpointLoader -> LoraLoaderModelOnly -> HelmApply -> CFGGuider.\n\nBuild an LTX axis first; no shipped axis is calibrated for LTX. Set 'axis' to that axis.\nstrength ~0.15, block 20 to start.\nUNTESTED ON LTX: LTX weights were not at hand; block/strength are placeholders. Verify with a sweep."
       },
       "widgets_values": [
-        "Helm on LTX (Text to Video, LTX-2.3).\n\nThe official LTX t2v blueprint with HelmApply inserted between the model LoRA and the\nCFGGuiders (inside this subgraph): CheckpointLoader -> LoraLoaderModelOnly -> HelmApply -> CFGGuider.\n\nSet the 'axis' widget to a built axis (see example_axes/). strength ~0.15, block 20 to start.\nUNTESTED ON LTX: LTX weights were not at hand; block/strength are H3 defaults. Verify with a sweep."
+        "Helm on LTX (Text to Video, LTX-2.3).\n\nThe official LTX t2v blueprint with HelmApply inserted between the model LoRA and the\nCFGGuiders (inside this subgraph): CheckpointLoader -> LoraLoaderModelOnly -> HelmApply -> CFGGuider.\n\nBuild an LTX axis first; no shipped axis is calibrated for LTX. Set 'axis' to that axis.\nstrength ~0.15, block 20 to start.\nUNTESTED ON LTX: LTX weights were not at hand; block/strength are placeholders. Verify with a sweep."
       ]
     }
   ],
@@ -3597,7 +3597,7 @@
               "Node name for S&R": "HelmApply"
             },
             "widgets_values": [
-              "mood",
+              "ltx_axis",
               20,
               0.15
             ]

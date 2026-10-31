@@ -125,7 +125,7 @@ uv run --no-project --with matplotlib --with pillow --with numpy \
   python study/src/build_study.py
 ```
 
-The CSVs and charts need only the JSON in `docs/data/`. The atlas thumbnails additionally need the external media archive at `~/HAL-archive/helm-videos/build/v38-intake/z19/2026-10-19/evo/`; if it is missing the build still writes every table and chart and the atlas falls back to placeholders.
+The CSVs and charts need only the JSON in `docs/data/`. The atlas thumbnails additionally need an external media archive: set `HELM_MEDIA_ROOT` to its root (the build expects `build/v38-intake/z19/2026-10-19/evo/` under it). If it is missing the build still writes every table and chart and the atlas falls back to placeholders.
 
 ## Data and licence
 

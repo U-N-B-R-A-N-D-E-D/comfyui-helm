@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Per-model defaults for HelmApply. `strength` ranges are relative to the axis vector's own scale, which is model-specific — always confirm with 1-2 renders (start at `default`). `tested: false` marks per-model defaults that are not yet verified.",
+  "note": "Per-model defaults for HelmApply. `strength` ranges are relative to the axis vector's own scale, which is model-specific — always confirm with 1-2 renders (start at `default`). A `safe_max` in an axis header is authoritative for that axis and overrides the model-level range. `tested: false` marks per-model defaults that are not yet verified.",
   "models": [
     {
       "match": [
@@ -17,7 +17,7 @@
       ],
       "strength": {
         "min": 0.01,
-        "max": 0.5,
+        "max": 0.3,
         "default": 0.1
       },
       "evidence": "Measured 2026-10-16: axis norm ~3000-4000; λ 0.01-0.3 = monotonic lighting/mood shift, subject preserved; λ>=1 destroys the frame.",

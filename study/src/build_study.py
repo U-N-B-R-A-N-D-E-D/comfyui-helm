@@ -13,6 +13,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -35,11 +36,9 @@ OUT_CHARTS = STUDY / "charts"
 OUT_ATLAS = STUDY / "atlas"
 OUT_THUMBS = OUT_ATLAS / "thumbs"
 
-EVO = Path.home() / "HAL-archive/helm-videos/build/v38-intake/z19/2026-10-19/evo"
-FONT_PATH = (
-    Path.home()
-    / "HAL-archive/helm-videos/source/vo-music/fonts/FragmentMono-Regular.ttf"
-)
+MEDIA_ROOT = Path(os.environ["HELM_MEDIA_ROOT"]).expanduser() if os.environ.get("HELM_MEDIA_ROOT") else None
+EVO = MEDIA_ROOT / "build/v38-intake/z19/2026-10-19/evo" if MEDIA_ROOT else None
+FONT_PATH = Path(os.environ["HELM_FONT_PATH"]).expanduser() if os.environ.get("HELM_FONT_PATH") else None
 
 BG = "#fbfbfa"
 INK = "#111111"
@@ -950,10 +949,12 @@ def make_thumb(axis, panels):
     canvas_h = height + header + gap * 2
     canvas = Image.new("RGB", (canvas_w, canvas_h), "#0a0a0a")
     draw = ImageDraw.Draw(canvas)
-    try:
-        font = ImageFont.truetype(str(FONT_PATH), 14)
-    except OSError:
-        font = ImageFont.load_default()
+    font = ImageFont.load_default()
+    if FONT_PATH is not None:
+        try:
+            font = ImageFont.truetype(str(FONT_PATH), 14)
+        except OSError:
+            pass
     for index, (path, caption) in enumerate(panels):
         x = gap + index * (width + gap)
         if path and Path(path).exists():
@@ -986,6 +987,8 @@ def strength_from_name(path):
 
 
 def axis_files(axis):
+    if EVO is None:
+        return [], []
     norm = sorted(
         EVO.glob(f"{axis}_norm_*.png"),
         key=lambda p: float(re.search(r"_norm_([0-9.]+)_", p.name).group(1)),
@@ -998,7 +1001,7 @@ def axis_files(axis):
 
 
 def panels_for(axis):
-    if not EVO.exists():
+    if EVO is None or not EVO.exists():
         return [(None, "media archive not found")] * 4
     norm, push = axis_files(axis)
     panels = []
@@ -1484,7 +1487,7 @@ uv run --no-project --with matplotlib --with pillow --with numpy \\
   python study/src/build_study.py
 ```
 
-The CSVs and charts need only the JSON in `docs/data/`. The atlas thumbnails additionally need the external media archive at `~/HAL-archive/helm-videos/build/v38-intake/z19/2026-10-19/evo/`; if it is missing the build still writes every table and chart and the atlas falls back to placeholders.
+The CSVs and charts need only the JSON in `docs/data/`. The atlas thumbnails additionally need an external media archive: set `HELM_MEDIA_ROOT` to its root (the build expects `build/v38-intake/z19/2026-10-19/evo/` under it). If it is missing the build still writes every table and chart and the atlas falls back to placeholders.
 
 ## Data and licence
 
@@ -1735,12 +1738,12 @@ def main():
     chart_model_matrix(models)
 
     if not args.skip_thumbs:
-        if EVO.exists():
+        if EVO is not None and EVO.exists():
             for row in axis_rows:
                 if row["axis"] in AXIS_LABELS["axes"]:
                     make_thumb(row["axis"], panels_for(row["axis"]))
         else:
-            print(f"media archive not found: {EVO} (atlas thumbnails skipped)")
+            print("media archive not found; set HELM_MEDIA_ROOT to its root (atlas thumbnails skipped)")
 
     build_atlas(axis_rows, survival)
     build_readme(labels, axes78, axis_rows, survival, bench_rows, models, prov_rows)

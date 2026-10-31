@@ -147,7 +147,7 @@
   "11": {
     "class_type": "HelmApply",
     "inputs": {
-      "axis": "vec",
+      "axis": "krea2_axis",
       "block": 20,
       "strength": 0.1,
       "dial": 0.0,

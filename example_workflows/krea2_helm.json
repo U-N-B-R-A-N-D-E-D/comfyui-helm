@@ -682,7 +682,7 @@
         "Node name for S&R": "HelmApply"
       },
       "widgets_values": [
-        "vec",
+        "krea2_axis",
         20,
         0.1
       ]
@@ -704,10 +704,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "HelmApply on Krea2 (image).\n\nLoraLoader -> HelmApply -> KSampler. The 'axis' must already exist in ComfyUI/user/steer/ (reads also check ComfyUI/models/steer/ and the pack's example_axes/).\nBuild it once with krea2_helm_collect, then set block + strength here (see calibration.json).\nstrength 0 = passthrough (no steering)."
+        "text": "HelmApply on Krea2 (image).\n\nLoraLoader -> HelmApply -> KSampler. The 'axis' must already exist in ComfyUI/user/steer/ (reads also check ComfyUI/models/steer/ and the pack's example_axes/).\nBuild it once with krea2_helm_collect into `krea2_axis`, then set block + strength here (see calibration.json).\nstrength 0 = passthrough (no steering)."
       },
       "widgets_values": [
-        "HelmApply on Krea2 (image).\n\nLoraLoader -> HelmApply -> KSampler. The 'axis' must already exist in ComfyUI/user/steer/ (reads also check ComfyUI/models/steer/ and the pack's example_axes/).\nBuild it once with krea2_helm_collect, then set block + strength here (see calibration.json).\nstrength 0 = passthrough (no steering)."
+        "HelmApply on Krea2 (image).\n\nLoraLoader -> HelmApply -> KSampler. The 'axis' must already exist in ComfyUI/user/steer/ (reads also check ComfyUI/models/steer/ and the pack's example_axes/).\nBuild it once with krea2_helm_collect into `krea2_axis`, then set block + strength here (see calibration.json).\nstrength 0 = passthrough (no steering)."
       ]
     }
   ],

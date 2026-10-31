@@ -330,6 +330,10 @@ def _steer(x, d, u, mode="push", clamp_k=1.0):
     clamp : move the projection onto the axis and clamp it to +/- clamp_k*||x||
             ("fix instead of push": never leave the range the model already produced)
     """
+    if mode not in ("push", "norm", "clamp"):
+        raise ValueError(f"unknown Helm mode {mode!r}; expected push, norm or clamp")
+    if torch.count_nonzero(d) == 0:
+        return x
     if mode == "push":
         return x + d
     if mode == "norm":
@@ -343,7 +347,6 @@ def _steer(x, d, u, mode="push", clamp_k=1.0):
         lim = float(clamp_k) * x.norm(dim=-1, keepdim=True)
         p_new = torch.clamp(p + delta, -lim, lim)
         return x + (p_new - p) * u
-    raise ValueError(f"unknown Helm mode {mode!r}; expected push, norm or clamp")
 
 
 def _parse_grid(grid):

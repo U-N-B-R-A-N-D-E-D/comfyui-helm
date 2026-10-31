@@ -16,6 +16,15 @@ def test_push_is_exactly_the_published_behavior():
     assert torch.equal(y, x + d)
 
 
+def test_zero_delta_is_a_byte_exact_passthrough_in_every_mode():
+    x = torch.randn(2, 5, 8)
+    d = torch.zeros_like(x)
+    u = torch.randn(8)
+    u = u / u.norm()
+    for mode in ("push", "norm", "clamp"):
+        assert torch.equal(nodes._steer(x, d, u, mode=mode), x), mode
+
+
 def test_norm_preserves_each_token_norm():
     x = torch.randn(2, 5, 8)
     vec = torch.randn(8)

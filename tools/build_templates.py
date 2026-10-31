@@ -187,7 +187,7 @@ def template_1():
     # 1 prompt
     g.group("1 · Write your prompt", 0, 0, 600, 600, GROUP_GREEN)
     pr = g.add("CLIPTextEncode", (20, 60), (560, 240),
-               ["the same room packed with server racks, cables and crates, documentary photography"],
+               ["an industrial hall with tall windows and a single person standing in the middle, documentary photography"],
                "Your prompt (edit me)", GREEN)
     size = g.add("EmptySD3LatentImage", (20, 340), (300, 150), [1024, 1024, 1], "Image size")
     seed = g.add("PrimitiveInt", (340, 340), (240, 100), [11, "fixed"], "Seed (same for Before and After)")
@@ -200,7 +200,7 @@ def template_1():
     # 3 dial
     g.group("3 · The Dial: move Amount", 780, 0, 560, 640, GROUP_ORANGE)
     n1 = g.add("Note", (800, 60), (520, 170), text=NOTE_STEPS, title="Helm 1 · Start here (Z-Image)", colors=NOTE)
-    d = g.add("HelmDial", (800, 270), (520, 170), ["Essentials · Less clutter (Z-Image)", 0.5],
+    d = g.add("HelmDial", (800, 270), (520, 170), ["Essentials · Light angle (raking) (Z-Image)", 0.5],
               "Helm · Dial", ORANGE)
     n2 = g.add("Note", (800, 470), (520, 140), colors=NOTE, title="What the Dial does", text=(
         "Amount 0 = Helm off. Amount 1 = the strongest setting that still looks right for this idea.\n"

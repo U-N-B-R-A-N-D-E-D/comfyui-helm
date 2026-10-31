@@ -11,7 +11,7 @@ In practice: more fog, less clutter, more cinematic light — one slider, no pro
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Format: safetensors](https://img.shields.io/badge/axes-.safetensors-brightgreen.svg)](#how-it-works)
-[![Tests: 160 passed](https://img.shields.io/badge/tests-160%20passed-success.svg)](docs/HARDENING.md)
+[![Tests: 164 passed](https://img.shields.io/badge/tests-164%20passed-success.svg)](docs/HARDENING.md)
 [![Comfy Registry](https://img.shields.io/badge/Comfy%20Registry-0.3.11%20Active-success.svg)](https://registry.comfy.org/nodes/comfyui-helm)
 
 [**See it**](#see-it) · [**Benchmark**](#the-honest-benchmark) · [**What you'll see**](#what-youll-see) · [**Build an axis**](#build-your-own-axis-in-60-seconds) · [**All workflows**](#all-workflows) · [**Experiments (78 axes)**](docs/EXPERIMENTS.md) · [**Roadmap**](docs/ROADMAP.md)
@@ -79,7 +79,7 @@ Install, restart ComfyUI, then open **Templates -> search `helm` -> `helm_1_star
 
 1. **Your prompt** (green box): write what you want.
 2. **Models**: leave as they are.
-3. **The Dial** (orange box): pick an idea from the menu (for example *Less clutter*) and move **Amount** from 0 to 1. 0 is off; 1 is the strongest setting that still looks right for that idea.
+3. **The Dial** (orange box): pick an idea from the menu (for example *Light angle (raking)*) and move **Amount** from 0 to 1. 0 is off; 1 is the strongest setting that still looks right for that idea.
 4. **Result: Before | After**: one Run renders your prompt twice with the same seed, once with the Dial off and once with your Amount, side by side.
 
 That is the whole product: one slider moves one idea, and your prompt is never rewritten. The first template needs Z-Image (consumer GPU, core ComfyUI nodes only).
@@ -92,7 +92,7 @@ Or clone into `ComfyUI/custom_nodes` and restart ComfyUI.
 
 The other two starters: **`helm_2_video_h3`** is the same Dial on MiniMax H3 video (core nodes; needs a ComfyUI recent enough to ship the H3 nodes, checked on 0.43.2; the int8 UNet does not fit in 24 GB). **`helm_3_make_your_own_axis`** shows **Helm · Make Axis**: type the idea twice (with it, without it), press Run, and the new axis is saved and dialed straight away.
 
-The *Essentials* in the Dial menu are only axes that hold up in this repo's own benchmark ([the honest benchmark](#the-honest-benchmark), [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md)). Anything you make or drop in appears under *Custom* and is **not** benchmarked.
+The *Essentials* in the Dial menu are only axes that hold up in this repo's own benchmark ([the honest benchmark](#the-honest-benchmark), [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md)). Essentials, in order: light angle (raking), volumetric light beams, overcast to direct sun, surface reflections, motion blur, aisle width, corridor orientation (Z-Image), then less clutter (Z-Image and MiniMax H3). Anything you make or drop in appears under *Custom* and is **not** benchmarked.
 
 ## Build your own axis in 60 seconds
 
@@ -100,11 +100,12 @@ Open `helm_3_make_your_own_axis`, type two prompts (**with the idea**, **without
 
 The manual route still exists under `Helm/Lab`: `Record activations` (run twice) → `Build axis from two recordings` (`HelmCollect(tag=pos)` + `HelmCollect(tag=neg)` → `HelmVector`). Point `Apply axis (manual strength)` (`HelmApply`) at the result. `block=-1` reads the block from the file header; `safe_max` keeps the dial inside the measured band. No training, no adapter, no checkpoint.
 
-**Download the 3-axis pack:** [`example_axes/`](example_axes/).
+**Download the 10-axis pack:** [`example_axes/`](example_axes/). Hashes and provenance: [`docs/AXES.md`](docs/AXES.md).
 
 - `z_room_density.safetensors` — Z-Image, block 15, dim 3840, `safe_max 0.25`
 - `mood.safetensors` — MiniMax H3, block 20, dim 5376
 - `density.safetensors` — MiniMax H3, block 20, dim 5376
+- Seven more Z-Image axes (block 15, dim 3840) that hold in the benchmark: light angle (raking), volumetric light beams, overcast to direct sun, surface reflections, motion blur, aisle width, corridor orientation.
 
 The H3 axes are ~22 KB; the Z-Image axis is ~16 KB. Point `HelmApply` at any of them.
 
@@ -274,7 +275,7 @@ Zero silent guessing: an undeclared tuple block raises an explicit `RuntimeError
 - **Self-contained `.safetensors` axes (no pickle).** Header metadata (dim, block, model, module, norm, `safe_max`); the legacy `.pt` read path is kept for 0.2.0 axes and loads strictly with `weights_only=True`.
 - **Resolution order without metadata shadowing.** `user/steer` → `models/steer` → `example_axes/` (preferring `.safetensors` over a legacy `.pt` in the same directory); metadata comes strictly from the axis's own `.safetensors` header or sidecar, so a bundled axis never shadows a user's file. A missing axis raises a `FileNotFoundError` listing every directory searched.
 - **MiniMax H3 aimdo bypass.** `aimdo_enabled = False` strictly for the wrapped call, restored in the `finally` block along with hook removal.
-- **161 automated tests** (one optional check needs a ComfyUI checkout) — silent-failure modes pinned; the full defect log is [`docs/HARDENING.md`](docs/HARDENING.md).
+- **165 automated tests** (one optional check needs a ComfyUI checkout) — silent-failure modes pinned; the full defect log is [`docs/HARDENING.md`](docs/HARDENING.md).
 
 ```bash
 curl -s http://127.0.0.1:8188/object_info | grep -o 'Helm[A-Za-z]*' | sort -u

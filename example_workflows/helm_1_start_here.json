@@ -48,7 +48,7 @@
         "Node name for S&R": "CLIPTextEncode"
       },
       "widgets_values": [
-        "the same room packed with server racks, cables and crates, documentary photography"
+        "an industrial hall with tall windows and a single person standing in the middle, documentary photography"
       ],
       "title": "Your prompt (edit me)",
       "color": "#232",
@@ -498,7 +498,7 @@
         "cnr_id": "comfyui-helm"
       },
       "widgets_values": [
-        "Essentials · Less clutter (Z-Image)",
+        "Essentials · Light angle (raking) (Z-Image)",
         0.5
       ],
       "title": "Helm · Dial",

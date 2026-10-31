@@ -24,7 +24,8 @@ The nodes and templates now deliver the product promise: one slider moves one id
 - Older templates moved to `example_workflows/legacy/` (the duplicate `z_image_helm.json` was removed); their
   notes were rewritten in plain language.
 - Removed a text-filter-bypass LoRA group and loader from the Krea 2 workflows (UI and API format).
-- Tests: 84 -> 161 (160 run everywhere; 1 optional check needs `COMFYUI_DIR`). New: Dial mapping and mismatch errors, Make Axis equals Collect + Vector,
+- Ships seven more Z-Image axes that hold in the benchmark (tensors unchanged; header gained `safe_max` and `safe_max_source`), hashes in `docs/AXES.md`. Template 1 defaults to *Light angle (raking)*.
+- Tests: 84 -> 165 (164 run everywhere; 1 optional check needs `COMFYUI_DIR`). New: Dial mapping and mismatch errors, Make Axis equals Collect + Vector,
   template structure, core node types).
 
 ## 0.3.11 — 2026-10-30

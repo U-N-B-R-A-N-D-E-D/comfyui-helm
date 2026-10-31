@@ -101,7 +101,8 @@ def test_dimension_mismatch_on_a_calibrated_model_is_plain(helm):
         helm.nodes.HelmDial().run(h3, "Custom · small", 0.5)
 
 
-def test_missing_axis_file_says_how_to_get_it(helm):
+def test_missing_axis_file_says_how_to_get_it(helm, monkeypatch):
+    monkeypatch.setattr(helm.nodes, "_READ_DIRS", [helm.steer, helm.models_steer])  # no shipped axes
     with pytest.raises(FileNotFoundError, match="Essentials"):
         helm.nodes.HelmDial().run(_model(), "Essentials · Light angle (raking) (Z-Image)", 0.5)
 
@@ -130,7 +131,8 @@ def test_menu_lists_essentials_then_custom(helm):
     assert all(c.startswith("Essentials") for c in choices[:first_custom])
 
 
-def test_menu_hides_recordings_and_absent_catalog_axes(helm):
+def test_menu_hides_recordings_and_absent_catalog_axes(helm, monkeypatch):
+    monkeypatch.setattr(helm.nodes, "_READ_DIRS", [helm.steer, helm.models_steer])  # no shipped axes
     helm.nodes._save_axis("pos", torch.ones(8), {"kind": "activation", "dim": 8, "block": 2})
     helm.nodes._save_axis("probe_pos", torch.ones(3, 8), {"kind": "probe", "dim": 8, "n_blocks": 3})
     choices = " | ".join(helm.nodes._dial_choices())
@@ -176,16 +178,70 @@ def test_catalog_matches_the_study_data(helm):
     import csv
     rows = {r["axis"]: r for r in csv.DictReader(open(os.path.join(helm.root, "study", "data", "axes.csv")))}
     catalog = json.load(open(os.path.join(helm.root, "axes_catalog.json")))["axes"]
-    z = [a for a in catalog if a["model_class"] == "NextDiT" and not a["shipped"]]
+    z = [a for a in catalog if a["file"] not in ("z_room_density", "density")]
     assert len(z) == 7
     for a in z:
         r = rows[a["file"]]
         assert r["strict_push"] == "holds" and r["monotone"] == "yes", a["file"]
         assert a["fallback_safe_max"] == pytest.approx(float(r["top_strength"])), a["file"]
     for a in catalog:
+        assert a["shipped"]
         assert a["evidence"] and a["label"] and a["family"]
         if a["shipped"]:
             assert os.path.exists(os.path.join(helm.root, "example_axes", a["file"] + ".safetensors"))
             meta = helm.nodes._load_axis_meta(os.path.join(helm.root, "example_axes", a["file"] + ".safetensors"))
             assert meta["model"] == a["model_class"]
             assert meta["safe_max"] == pytest.approx(a["fallback_safe_max"])
+
+
+# --- Essentials: every entry ships, is the file we recorded, and resolves a safe range ---------
+
+def _provenance():
+    rows = {}
+    text = open(os.path.join(conftest.ROOT, "docs", "AXES.md"), encoding="utf-8").read()
+    for line in text.splitlines():
+        parts = [p.strip().strip("`") for p in line.strip().strip("|").split("|")]
+        if len(parts) == 4 and parts[0].startswith("z_"):
+            rows[parts[0]] = (float(parts[1]), parts[2], parts[3])
+    return rows
+
+
+def test_every_essentials_entry_has_its_file_and_a_resolvable_safe_max(helm):
+    entries = [e for e in helm.nodes._dial_entries() if e["section"] == "Essentials"]
+    catalog = json.load(open(os.path.join(helm.root, "axes_catalog.json")))["axes"]
+    assert [e["file"] for e in entries] == [a["file"] for a in catalog], "menu follows catalog order"
+    assert len(entries) == 9
+    for e in entries:
+        path = helm.nodes._resolve_axis(e["file"])
+        assert path.startswith(os.path.join(helm.pack, "example_axes"))
+        assert e["safe_max"] and e["safe_max"] > 0
+        assert helm.nodes._dial_strength(1.0, e["safe_max"]) == pytest.approx(e["safe_max"])
+
+
+def test_essentials_light_and_atmosphere_come_first(helm):
+    labels = [e["label"] for e in helm.nodes._dial_entries() if e["section"] == "Essentials"]
+    assert labels[:3] == ["Light angle (raking)", "Volumetric light beams", "Overcast \u2194 direct sun"]
+
+
+def test_shipped_z_image_axes_match_the_provenance_table(helm):
+    import hashlib
+    import struct
+    prov = _provenance()
+    assert len(prov) == 7
+    for name, (safe, file_sha, tensor_sha) in prov.items():
+        raw = open(os.path.join(helm.pack, "example_axes", name + ".safetensors"), "rb").read()
+        assert hashlib.sha256(raw).hexdigest() == file_sha, name
+        n = struct.unpack("<Q", raw[:8])[0]
+        assert hashlib.sha256(raw[8 + n:]).hexdigest() == tensor_sha, name  # tensor bytes as captured
+        meta = helm.nodes._load_axis_meta(os.path.join(helm.pack, "example_axes", name + ".safetensors"))
+        assert meta["safe_max"] == pytest.approx(safe)
+        assert meta["safe_max_source"] == "benchmark (axes.csv)"
+        assert meta["model"] == "NextDiT" and meta["block"] == 15 and meta["dim"] == 3840
+        assert meta["from"] == {"pos": name + "_pos", "neg": name + "_neg"}  # tags only, no paths
+
+
+def test_header_safe_max_equals_the_benchmark_top_strength(helm):
+    import csv
+    rows = {r["axis"]: r for r in csv.DictReader(open(os.path.join(helm.root, "study", "data", "axes.csv")))}
+    for name, (safe, _f, _t) in _provenance().items():
+        assert safe == pytest.approx(float(rows[name]["top_strength"]))

@@ -44,7 +44,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            1
+            7
           ]
         }
       ],
@@ -105,7 +105,8 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            2
+            5,
+            6
           ]
         }
       ],
@@ -116,89 +117,6 @@
         "qwen3vl_4b_fp8_scaled.safetensors",
         "krea2",
         null
-      ]
-    },
-    {
-      "id": 3,
-      "type": "LoraLoader",
-      "pos": [
-        -20,
-        40
-      ],
-      "size": [
-        300,
-        90
-      ],
-      "flags": {},
-      "order": 3,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "model",
-          "name": "model",
-          "type": "MODEL",
-          "link": 1
-        },
-        {
-          "localized_name": "clip",
-          "name": "clip",
-          "type": "CLIP",
-          "link": 2
-        },
-        {
-          "localized_name": "lora_name",
-          "name": "lora_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "lora_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "strength_model",
-          "name": "strength_model",
-          "type": "FLOAT",
-          "widget": {
-            "name": "strength_model"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "strength_clip",
-          "name": "strength_clip",
-          "type": "FLOAT",
-          "widget": {
-            "name": "strength_clip"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "MODEL",
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            7
-          ]
-        },
-        {
-          "localized_name": "CLIP",
-          "name": "CLIP",
-          "type": "CLIP",
-          "links": [
-            5,
-            6
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoraLoader"
-      },
-      "widgets_values": [
-        "krea2/fedor_bypass.safetensors",
-        0.8,
-        0.8
       ]
     },
     {
@@ -711,30 +629,14 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "Image-defined axis (no contrast prompt).\n\n1) Load image A, run with tag 'imgA' and denoise ~0.55: HelmCollect records the block\n   activation during the img2img pass.\n2) Change the image to B and the tag to 'imgB', run again.\n3) HelmVector (imgA, imgB -> axis): the direction is defined by the IMAGES.\n\nSame hook as the text contrast, but the contrast is visual. Then apply with HelmApply."
+        "text": "HELM LAB (older template). An idea defined by two IMAGES instead of two prompts.\n\n1) Load image A, run with the name 'imgA' and denoise about 0.55. This records what the model sees in that image.\n2) Load image B, change the name to 'imgB', run again.\n3) Open helm_vector: it combines the two recordings into an axis (A minus B).\nThen use the axis with 'Apply axis'. Same method as the prompt version, but the contrast is visual."
       },
       "widgets_values": [
-        "Image-defined axis (no contrast prompt).\n\n1) Load image A, run with tag 'imgA' and denoise ~0.55: HelmCollect records the block\n   activation during the img2img pass.\n2) Change the image to B and the tag to 'imgB', run again.\n3) HelmVector (imgA, imgB -> axis): the direction is defined by the IMAGES.\n\nSame hook as the text contrast, but the contrast is visual. Then apply with HelmApply."
+        "HELM LAB (older template). An idea defined by two IMAGES instead of two prompts.\n\n1) Load image A, run with the name 'imgA' and denoise about 0.55. This records what the model sees in that image.\n2) Load image B, change the name to 'imgB', run again.\n3) Open helm_vector: it combines the two recordings into an axis (A minus B).\nThen use the axis with 'Apply axis'. Same method as the prompt version, but the contrast is visual."
       ]
     }
   ],
   "links": [
-    [
-      1,
-      1,
-      0,
-      3,
-      0,
-      "MODEL"
-    ],
-    [
-      2,
-      2,
-      0,
-      3,
-      1,
-      "CLIP"
-    ],
     [
       3,
       4,
@@ -753,23 +655,23 @@
     ],
     [
       5,
-      3,
-      1,
+      2,
+      0,
       7,
       1,
       "CLIP"
     ],
     [
       6,
-      3,
-      1,
+      2,
+      0,
       8,
       1,
       "CLIP"
     ],
     [
       7,
-      3,
+      1,
       0,
       9,
       0,

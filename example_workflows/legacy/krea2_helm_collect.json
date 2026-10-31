@@ -1,5 +1,5 @@
 {
-  "id": "f32bee3a-a4f4-4988-a260-64a36a5c4a27",
+  "id": "1e173a09-949d-4143-a2de-1a3cfcbf5750",
   "revision": 0,
   "last_node_id": 12,
   "last_link_id": 10,
@@ -44,7 +44,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            1
+            4
           ]
         }
       ],
@@ -145,93 +145,6 @@
       ],
       "properties": {
         "Node name for S&R": "VAEDecode"
-      }
-    },
-    {
-      "id": 4,
-      "type": "LoraLoader",
-      "pos": [
-        57.87060053661617,
-        209.222991635101
-      ],
-      "size": [
-        315,
-        126
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "model",
-          "name": "model",
-          "type": "MODEL",
-          "link": 1
-        },
-        {
-          "localized_name": "clip",
-          "name": "clip",
-          "type": "CLIP",
-          "link": 2
-        },
-        {
-          "localized_name": "lora_name",
-          "name": "lora_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "lora_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "strength_model",
-          "name": "strength_model",
-          "type": "FLOAT",
-          "widget": {
-            "name": "strength_model"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "strength_clip",
-          "name": "strength_clip",
-          "type": "FLOAT",
-          "widget": {
-            "name": "strength_clip"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "MODEL",
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            4
-          ]
-        },
-        {
-          "localized_name": "CLIP",
-          "name": "CLIP",
-          "type": "CLIP",
-          "links": [
-            5
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoraLoader"
-      },
-      "widgets_values": [
-        "krea2/fedor_bypass.safetensors",
-        0.8,
-        0.8
-      ],
-      "widgets_values_named": {
-        "lora_name": "krea2/fedor_bypass.safetensors",
-        "strength_model": 0.8,
-        "strength_clip": 0.8
       }
     },
     {
@@ -628,7 +541,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            2
+            5
           ]
         }
       ],
@@ -648,14 +561,14 @@
     },
     {
       "id": 11,
-      "type": "HelmApply",
+      "type": "HelmCollect",
       "pos": [
         450,
         300
       ],
       "size": [
         280,
-        106
+        98
       ],
       "flags": {},
       "order": 4,
@@ -679,12 +592,11 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "HelmApply"
+        "Node name for S&R": "HelmCollect"
       },
       "widgets_values": [
-        "krea2_axis",
-        20,
-        0.1
+        "pos",
+        20
       ]
     },
     {
@@ -696,7 +608,7 @@
       ],
       "size": [
         430,
-        220
+        240
       ],
       "flags": {},
       "order": 0,
@@ -704,30 +616,14 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "HelmApply on Krea2 (image).\n\nLoraLoader -> HelmApply -> KSampler. The 'axis' must already exist in ComfyUI/user/steer/ (reads also check ComfyUI/models/steer/ and the pack's example_axes/).\nBuild it once with krea2_helm_collect into `krea2_axis`, then set block + strength here (see calibration.json).\nstrength 0 = passthrough (no steering)."
+        "text": "HELM LAB (older template). Most people want 'Helm 3 - Make your own axis' instead.\n\nRecords what the model 'thinks' for one prompt, so an axis can be built from two prompts.\n1) Run with the name 'pos' and the prompt that HAS your idea.\n2) Change the name to 'neg' and the prompt to the same text WITHOUT the idea. Run again.\n3) Open helm_vector to combine the two recordings into an axis.\nEverything else in the graph is identical to krea2_helm."
       },
       "widgets_values": [
-        "HelmApply on Krea2 (image).\n\nLoraLoader -> HelmApply -> KSampler. The 'axis' must already exist in ComfyUI/user/steer/ (reads also check ComfyUI/models/steer/ and the pack's example_axes/).\nBuild it once with krea2_helm_collect into `krea2_axis`, then set block + strength here (see calibration.json).\nstrength 0 = passthrough (no steering)."
+        "HELM LAB (older template). Most people want 'Helm 3 - Make your own axis' instead.\n\nRecords what the model 'thinks' for one prompt, so an axis can be built from two prompts.\n1) Run with the name 'pos' and the prompt that HAS your idea.\n2) Change the name to 'neg' and the prompt to the same text WITHOUT the idea. Run again.\n3) Open helm_vector to combine the two recordings into an axis.\nEverything else in the graph is identical to krea2_helm."
       ]
     }
   ],
   "links": [
-    [
-      1,
-      1,
-      0,
-      4,
-      0,
-      "MODEL"
-    ],
-    [
-      2,
-      2,
-      0,
-      4,
-      0,
-      "CLIP"
-    ],
     [
       3,
       3,
@@ -738,7 +634,7 @@
     ],
     [
       4,
-      4,
+      1,
       0,
       11,
       0,
@@ -746,7 +642,7 @@
     ],
     [
       5,
-      6,
+      2,
       0,
       5,
       1,
@@ -793,20 +689,7 @@
       "MODEL"
     ]
   ],
-  "groups": [
-    {
-      "id": 1,
-      "title": "Krea2 Unclocked (fedor_bypass)",
-      "bounding": [
-        30,
-        20,
-        1500,
-        400
-      ],
-      "color": "#2a363d",
-      "flags": {}
-    }
-  ],
+  "groups": [],
   "config": {},
   "extra": {
     "ds": {

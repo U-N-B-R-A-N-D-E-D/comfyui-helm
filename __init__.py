@@ -41,6 +41,14 @@ try:
                         "created": meta.get("created"),
                         "tested": meta.get("tested"),
                     })
-        return web.json_response({"axes": axes, "dirs": list(_nodes._READ_DIRS)})
+        # `dial` is the menu the HelmDial node offers: Essentials (benchmarked) then Custom.
+        pkg = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
+        dial = _nodes._dial_entries()
+        for e in dial:  # a real before/after for the axes that have one, served from this pack's web folder
+            rel = (_nodes._catalog().get(e["file"]) or {}).get("preview")
+            if rel and e["section"] == _nodes.ESSENTIALS:
+                e["preview"] = f"/extensions/{pkg}/{rel}"
+        return web.json_response({"axes": axes, "dial": dial,
+                                  "dirs": list(_nodes._READ_DIRS)})
 except Exception:
     pass

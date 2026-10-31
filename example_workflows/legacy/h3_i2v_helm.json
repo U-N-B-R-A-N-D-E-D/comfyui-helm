@@ -202,10 +202,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "Helm on MiniMax H3 (Image to Video).\n\nOfficial H3 i2v blueprint with HelmApply inserted after the model switch\n(UNETLoader/LoRA -> HelmApply -> BasicScheduler + BasicGuider).\nH3: block 20, strength 0.01-0.3 (tested). Default 'mood' ships in example_axes/; build your own with HelmCollect + HelmVector."
+        "text": "OLDER TEMPLATE (for experts). New here? Open 'Helm 2 - Video (MiniMax H3)' instead.\n\nTurns one image (or two: first + last frame) into a video, with Helm steering the look.\nThe Helm control lives INSIDE the grouped node 'Image to Video (MiniMax H3)': open it (click the icon in its corner) to move it.\nIt uses the shipped 'mood' axis, strength 0.15 (safe range 0 to 0.3).\nStrength 0 = Helm off. To make your own idea, open 'Helm 3 - Make your own axis'."
       },
       "widgets_values": [
-        "Helm on MiniMax H3 (Image to Video).\n\nOfficial H3 i2v blueprint with HelmApply inserted after the model switch\n(UNETLoader/LoRA -> HelmApply -> BasicScheduler + BasicGuider).\nH3: block 20, strength 0.01-0.3 (tested). Default 'mood' ships in example_axes/; build your own with HelmCollect + HelmVector."
+        "OLDER TEMPLATE (for experts). New here? Open 'Helm 2 - Video (MiniMax H3)' instead.\n\nTurns one image (or two: first + last frame) into a video, with Helm steering the look.\nThe Helm control lives INSIDE the grouped node 'Image to Video (MiniMax H3)': open it (click the icon in its corner) to move it.\nIt uses the shipped 'mood' axis, strength 0.15 (safe range 0 to 0.3).\nStrength 0 = Helm off. To make your own idea, open 'Helm 3 - Make your own axis'."
       ]
     }
   ],

@@ -13,17 +13,16 @@ PACK = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 AXES = os.path.join(PACK, "example_axes")
 
 MODEL_DIM = {
-    "example_workflows/h3_t2v_helm.json": 5376,
-    "example_workflows/h3_i2v_helm.json": 5376,
+    "example_workflows/legacy/h3_t2v_helm.json": 5376,
+    "example_workflows/legacy/h3_i2v_helm.json": 5376,
     "api/h3_t2v_helm_api.json": 5376,
-    "example_workflows/z_image_helm.json": 3840,
 }
 
 PLACEHOLDER_AXIS = {
-    "example_workflows/krea2_helm.json": "krea2_axis",
-    "example_workflows/krea2_turbo_helm.json": "krea2_axis",
+    "example_workflows/legacy/krea2_helm.json": "krea2_axis",
+    "example_workflows/legacy/krea2_turbo_helm.json": "krea2_axis",
     "api/krea2_helm_api.json": "krea2_axis",
-    "example_workflows/ltx_t2v_helm.json": "ltx_axis",
+    "example_workflows/legacy/ltx_t2v_helm.json": "ltx_axis",
 }
 
 
@@ -43,6 +42,7 @@ def _shipped_dims():
 
 def _workflow_files():
     files = sorted(glob.glob(os.path.join(PACK, "example_workflows", "*.json")))
+    files += sorted(glob.glob(os.path.join(PACK, "example_workflows", "legacy", "*.json")))
     files += sorted(glob.glob(os.path.join(PACK, "api", "*.json")))
     return files
 
@@ -96,6 +96,7 @@ def test_every_helmapply_axis_matches_its_workflow_model():
 
 def test_every_shipped_axis_has_a_calibrated_workflow_dimension():
     dims = _shipped_dims()
-    expected = set(MODEL_DIM.values())
+    # the flat starter templates use HelmDial (tests/test_templates.py checks those axes): Z-Image + H3
+    expected = set(MODEL_DIM.values()) | {3840, 5376}
     for axis, dim in dims.items():
         assert dim in expected, f"{axis}: dim {dim} is not used by a calibrated workflow"

@@ -20,25 +20,6 @@
       "title": "CLIPLoader"
     }
   },
-  "3": {
-    "class_type": "LoraLoader",
-    "inputs": {
-      "lora_name": "krea2/fedor_bypass.safetensors",
-      "strength_model": 0.8,
-      "strength_clip": 0.8,
-      "model": [
-        1,
-        0
-      ],
-      "clip": [
-        2,
-        0
-      ]
-    },
-    "_meta": {
-      "title": "LoraLoader"
-    }
-  },
   "4": {
     "class_type": "LoadImage",
     "inputs": {

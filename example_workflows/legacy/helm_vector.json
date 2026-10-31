@@ -118,10 +118,10 @@
       "inputs": [],
       "outputs": [],
       "properties": {
-        "text": "HelmVector: axis = mean(pos) - mean(neg).\n\n1) Run HelmCollect twice: tag 'pos' with prompt A, then tag 'neg' with prompt B.\n2) Set pos_tag / neg_tag to those tags, give the axis a name.\n3) Run: writes ComfyUI/user/steer/<axis>.safetensors (tiny vector file).\n4) Type that name into HelmApply's 'axis' widget.\n\nPreviewAny shows the result. This node needs no model."
+        "text": "HELM LAB. Most people want 'Helm 3 - Make your own axis' instead: it does all of this in one node.\n\nThis is the manual way to build an idea from two recordings.\n1) Run the 'Record activations' graph twice (see krea2_helm_collect): once with the name 'pos' and your 'with the idea' prompt, once with the name 'neg' and your 'without the idea' prompt.\n2) Type those two names here and give the new axis a name.\n3) Run. The axis is saved in ComfyUI/user/steer/ and can be used by Apply axis.\nThis node needs no model. The preview shows the result."
       },
       "widgets_values": [
-        "HelmVector: axis = mean(pos) - mean(neg).\n\n1) Run HelmCollect twice: tag 'pos' with prompt A, then tag 'neg' with prompt B.\n2) Set pos_tag / neg_tag to those tags, give the axis a name.\n3) Run: writes ComfyUI/user/steer/<axis>.safetensors (tiny vector file).\n4) Type that name into HelmApply's 'axis' widget.\n\nPreviewAny shows the result. This node needs no model."
+        "HELM LAB. Most people want 'Helm 3 - Make your own axis' instead: it does all of this in one node.\n\nThis is the manual way to build an idea from two recordings.\n1) Run the 'Record activations' graph twice (see krea2_helm_collect): once with the name 'pos' and your 'with the idea' prompt, once with the name 'neg' and your 'without the idea' prompt.\n2) Type those two names here and give the new axis a name.\n3) Run. The axis is saved in ComfyUI/user/steer/ and can be used by Apply axis.\nThis node needs no model. The preview shows the result."
       ]
     }
   ],

@@ -6,8 +6,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_comfyignore_excludes_dev_paths():
     ignore = (ROOT / ".comfyignore").read_text()
-    for path in ("tests/", "docs/", "study/", ".github/", "examples/"):
+    for path in ("/tests/", "/docs/", "/study/", "/.github/", "/examples/", "/tools/"):
         assert path in ignore, f"{path} must stay out of the Registry package"
+    assert "docs/" not in ignore.splitlines(), "root-only /docs/ must not exclude web/docs/"
+
+
+def test_web_node_help_is_present():
+    docs = ROOT / "web" / "docs"
+    assert (docs / "HelmDial.md").exists()
+    assert (docs / "HelmMakeAxis.md").exists()
 
 
 def test_runtime_has_no_dynamic_import():

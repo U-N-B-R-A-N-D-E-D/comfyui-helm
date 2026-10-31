@@ -8,7 +8,7 @@ This is the derived data behind [`README.md`](README.md). The source of truth is
 - **Sampling:** seed 11, three strengths per axis in `push`, `norm` and `clamp`; a second seed (23) only for the prompt-mix benchmark and the H3 dose check.
 - **Window:** the 2026-10-19 capture. 78 directions captured; 55 dosed; 53 labelled; 2 unmeasured.
 - **Unit:** one row per direction, one row per dose point, one row per render job.
-- **Not included:** the rendered images (outside git), the H3 video renders, and the KCA client production renders. The 452 `kca-z-image-turbo` renders are a client's work and are never part of this study.
+- **Not included:** the rendered images (outside git), the H3 video renders, and any client production renders. Client work is never part of this study.
 
 ## Files
 

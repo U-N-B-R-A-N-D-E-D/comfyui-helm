@@ -10,6 +10,10 @@ WIDGET_ORDER = {
     # `model` is a MODEL link input, not a widget value; only widget values are serialized.
     "HelmCollect": [("tag", str), ("block", int), ("cond_only", bool)],
     "HelmVector": [("pos_tag", str), ("neg_tag", str), ("axis", str), ("safe_max", float)],
+    "HelmDial": [("axis", str), ("amount", float)],
+    # `seed` is followed by its control_after_generate value, like every ComfyUI seed widget
+    "HelmMakeAxis": [("with_idea", str), ("without_idea", str), ("name", str), ("steps", int),
+                     ("seed", int), ("seed_control", str), ("cfg", float), ("block", int)],
     "HelmApply": [
         ("axis", str),
         ("block", int),
@@ -36,6 +40,7 @@ def _iter_helm_objs(obj):
 
 def _workflow_files(root):
     files = sorted(glob.glob(os.path.join(root, "example_workflows", "*.json")))
+    files += sorted(glob.glob(os.path.join(root, "example_workflows", "legacy", "*.json")))
     files += sorted(glob.glob(os.path.join(root, "api", "*.json")))
     return files
 
@@ -119,7 +124,7 @@ def test_api_helm_nodes_satisfy_required_inputs(helm):
 
 
 def test_h3_t2v_chains_two_helmapply(helm):
-    path = os.path.join(helm.pack, "example_workflows", "h3_t2v_helm.json")
+    path = os.path.join(helm.pack, "example_workflows", "legacy", "h3_t2v_helm.json")
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
